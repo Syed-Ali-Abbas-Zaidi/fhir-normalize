@@ -213,9 +213,13 @@ chain having built `dist/`. Vercel runs its build inside `playground/`, so a com
 from the repo root fails there.
 
 Deployment settings live in [`vercel.json`](vercel.json) rather than the Vercel dashboard, so they
-travel with the repo and get reviewed. Both entries are written to be independent of the working
-directory — `pnpm --filter` resolves the workspace by walking up to `pnpm-workspace.yaml`, so it
-behaves the same from the repo root and from `playground/`.
+travel with the repo and get reviewed. Two notes on them:
+
+- `buildCommand` uses `pnpm --filter`, which resolves the workspace by walking up to
+  `pnpm-workspace.yaml` and so behaves the same from the repo root and from `playground/`.
+- Vercel's Root Directory is `playground`, and `outputDirectory` is resolved relative to it — hence
+  `.next`, not `playground/.next`. It is set explicitly so the value in `vercel.json` wins over
+  whatever is stored in the dashboard.
 
 ## Development
 
