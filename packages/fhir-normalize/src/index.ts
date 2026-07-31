@@ -1,5 +1,6 @@
 import { Normalizer } from './core';
 import { fhirJsonParser } from './parsers/fhir-json';
+import { fhirXmlParser } from './parsers/fhir-xml';
 
 export type {
   BundleType,
@@ -29,6 +30,7 @@ export {
   UnsupportedFormatError,
 } from './core';
 export { fhirJsonParser } from './parsers/fhir-json';
+export { fhirXmlParser } from './parsers/fhir-xml';
 
 /**
  * A `Normalizer` with every built-in parser registered — the batteries-included
@@ -37,5 +39,10 @@ export { fhirJsonParser } from './parsers/fhir-json';
  * It is a factory rather than a shared singleton so importing this module has
  * no side effects: each caller gets an isolated registry it can extend with
  * `register()` without affecting anyone else.
+ *
+ * Registration order is detection order. JSON goes first because its check is
+ * the stricter of the two: it requires a decodable object with a
+ * `resourceType`, while the XML check only looks for a leading `<`.
  */
-export const createDefaultNormalizer = (): Normalizer => new Normalizer().register(fhirJsonParser);
+export const createDefaultNormalizer = (): Normalizer =>
+  new Normalizer().register(fhirJsonParser).register(fhirXmlParser);

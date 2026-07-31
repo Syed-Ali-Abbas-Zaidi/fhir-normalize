@@ -24,7 +24,7 @@ Early. `0.1.0`, API still firming up.
 | Format | Status |
 | --- | --- |
 | FHIR JSON (resource, Bundle, or array) | ✅ Supported |
-| FHIR XML | 🚧 In progress |
+| FHIR XML | ✅ Supported |
 | Cross-version STU3 / R5 → R4 | 🚧 Planned |
 | HL7 v2, C-CDA, CSV | 📋 Later |
 
@@ -51,6 +51,26 @@ normalizer.detectFormat(raw);                     // 'fhir-json' | ... | null
 ```
 
 Input can be a JSON string or an already-parsed object.
+
+### XML in, the same shape out
+
+The same call handles FHIR XML. Element names become `resourceType`, `value` attributes become
+primitives, and the extra `<resource>` level that XML wraps Bundle entries in is unwrapped:
+
+```ts
+normalizer.parse('<Patient><id value="x"/><gender value="male"/></Patient>');
+// -> identical bundle.entry to parsing {"resourceType":"Patient","id":"x","gender":"male"}
+```
+
+**XML carries no schema, so two things are inferred** — and every XML parse says so in
+`meta.warnings`:
+
+- **Cardinality.** A lone `<name>` is indistinguishable from a one-item list, so repeating
+  elements are recognised by name. Elements outside that set stay scalar when they occur once.
+- **Primitive types.** Everything in XML is a string. Types are recovered only where the spec is
+  unambiguous — `value[x]` suffixes encode their own type (`valueInteger` → number), plus a few
+  fixed-type names. Anything else stays a string, deliberately: `<postalCode value="02134"/>`
+  must not become `2134`.
 
 ### Warnings, not exceptions
 
@@ -121,7 +141,7 @@ Registering an already-registered format replaces it, so you can also override a
 | --- | --- |
 | `Normalizer` | The registry. `register()`, `parse()`, `detectFormat()`, `formats`. |
 | `createDefaultNormalizer()` | A `Normalizer` with all built-in parsers registered. |
-| `fhirJsonParser` | The FHIR JSON adapter. |
+| `fhirJsonParser`, `fhirXmlParser` | The built-in adapters. |
 | `ParseResult` | `{ bundle, meta: { sourceFormat, parsedAt, warnings } }`. |
 | `FormatParser` | The adapter contract to implement for a new format. |
 | `FhirNormalizeError`, `UnsupportedFormatError`, `ParseError` | Error types. |
