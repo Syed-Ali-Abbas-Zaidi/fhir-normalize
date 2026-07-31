@@ -4,7 +4,8 @@
   "type": "module",
   "packageManager": "pnpm@11.17.0",
   "engines": {
-    "node": ">=18"
+    "//": "Development toolchain only — pnpm 11 requires this. The published package supports Node >=18; see packages/fhir-normalize.",
+    "node": ">=22.13"
   },
   "scripts": {
     "build": "pnpm --filter fhir-normalize build",

@@ -9,6 +9,12 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # pnpm 11 refuses to start below this, so it is the floor for every job that
+  # uses the workspace. The published package supports much older Node — that
+  # claim is tested separately by the `smoke` job.
+  TOOLCHAIN_NODE: 22
+
 jobs:
   verify:
     name: verify (node ${{ matrix.node }})
@@ -16,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: [20, 22]
+        node: [22, 24]
 
     steps:
       - uses: actions/checkout@v5
@@ -47,6 +53,99 @@ jobs:
       - name: Build playground
         run: pnpm --filter playground build
 
-      # Catches a publish that would ship without code, a README, or a licence.
-      - name: Check publishable contents
+  pack:
+    name: pack
+    needs: verify
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.TOOLCHAIN_NODE }}
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm --filter fhir-normalize build
+
+      # prepack also fails the build if dist/ is missing or the README and
+      # licence cannot be copied in.
+      - name: Pack
         run: pnpm --filter fhir-normalize pack --pack-destination "$RUNNER_TEMP"
+
+      - name: Confirm the tarball carries a README and a licence
+        run: |
+          tarball="$(find "$RUNNER_TEMP" -name 'fhir-normalize-*.tgz' | head -1)"
+          contents="$(tar -tzf "$tarball")"
+          echo "$contents"
+          for required in package/README.md package/LICENSE package/dist/index.js \
+                          package/dist/index.cjs package/dist/index.d.ts package/dist/index.d.cts; do
+            echo "$contents" | grep -qx "$required" || { echo "missing $required" >&2; exit 1; }
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-tarball
+          path: ${{ runner.temp }}/fhir-normalize-*.tgz
+          retention-days: 7
+
+  smoke:
+    name: consumer install (node ${{ matrix.node }})
+    needs: pack
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The range `engines.node` advertises. Installed with npm rather than
+        # pnpm so the older versions are reachable, and so this exercises the
+        # path a real consumer takes.
+        node: [18, 20, 22, 24]
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: package-tarball
+          path: ${{ runner.temp }}/pkg
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Install the tarball into an empty project
+        run: |
+          mkdir -p "$RUNNER_TEMP/consumer"
+          cd "$RUNNER_TEMP/consumer"
+          npm init -y > /dev/null
+          npm install "$RUNNER_TEMP"/pkg/fhir-normalize-*.tgz
+
+      - name: Import as ESM
+        working-directory: ${{ runner.temp }}/consumer
+        run: |
+          node --input-type=module -e "
+            import { createDefaultNormalizer } from 'fhir-normalize';
+            const { bundle, meta } = createDefaultNormalizer()
+              .parse('<Patient><id value=\"x\"/></Patient>');
+            if (meta.sourceFormat !== 'fhir-xml') throw new Error('wrong format: ' + meta.sourceFormat);
+            if (bundle.entry[0].resource.resourceType !== 'Patient') throw new Error('bad bundle');
+            console.log('esm ok on node ' + process.versions.node);
+          "
+
+      - name: Require as CJS
+        working-directory: ${{ runner.temp }}/consumer
+        run: |
+          node --input-type=commonjs -e "
+            const { createDefaultNormalizer, UnsupportedFormatError } = require('fhir-normalize');
+            const { meta } = createDefaultNormalizer().parse('{\"resourceType\":\"Patient\"}');
+            if (meta.sourceFormat !== 'fhir-json') throw new Error('wrong format: ' + meta.sourceFormat);
+            try {
+              createDefaultNormalizer().parse('id,name');
+              throw new Error('expected UnsupportedFormatError');
+            } catch (error) {
+              if (!(error instanceof UnsupportedFormatError)) throw error;
+            }
+            console.log('cjs ok on node ' + process.versions.node);
+          "
