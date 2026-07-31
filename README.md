@@ -207,6 +207,20 @@ pnpm --filter fhir-normalize build   # the playground consumes dist/
 pnpm --filter playground dev
 ```
 
+The playground's own `build` and `dev` scripts build the library first. That is deliberate: it makes
+them work from any directory and on any host, rather than depending on something earlier in the
+chain having built `dist/`. Vercel runs its build inside `playground/`, so a command that only works
+from the repo root fails there.
+
+Deployment settings live in [`vercel.json`](vercel.json) rather than the Vercel dashboard, so they
+travel with the repo and get reviewed. Two notes on them:
+
+- `buildCommand` uses `pnpm --filter`, which resolves the workspace by walking up to
+  `pnpm-workspace.yaml` and so behaves the same from the repo root and from `playground/`.
+- Vercel's Root Directory is `playground`, and `outputDirectory` is resolved relative to it — hence
+  `.next`, not `playground/.next`. It is set explicitly so the value in `vercel.json` wins over
+  whatever is stored in the dashboard.
+
 ## Development
 
 This repo is a pnpm workspace. The library lives in
