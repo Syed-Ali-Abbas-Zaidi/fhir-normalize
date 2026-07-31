@@ -14,8 +14,26 @@ import {
 import { patientFixture } from './parsers/fhir-json/__fixtures__';
 
 describe('createDefaultNormalizer', () => {
-  it('registers every built-in parser', () => {
-    expect(createDefaultNormalizer().formats).toEqual([SOURCE_FORMAT.FHIR_JSON]);
+  it('registers every built-in parser, JSON first so the stricter check runs first', () => {
+    expect(createDefaultNormalizer().formats).toEqual([
+      SOURCE_FORMAT.FHIR_JSON,
+      SOURCE_FORMAT.FHIR_XML,
+    ]);
+  });
+
+  it.each([
+    ['JSON', '{"resourceType":"Patient","id":"x"}', SOURCE_FORMAT.FHIR_JSON],
+    ['XML', '<Patient><id value="x"/></Patient>', SOURCE_FORMAT.FHIR_XML],
+  ])('routes %s to its own adapter', (_label, input, expected) => {
+    expect(createDefaultNormalizer().detectFormat(input)).toBe(expected);
+  });
+
+  it('produces the same canonical shape from equivalent JSON and XML', () => {
+    const normalizer = createDefaultNormalizer();
+    const fromJson = normalizer.parse('{"resourceType":"Patient","id":"x","gender":"male"}');
+    const fromXml = normalizer.parse('<Patient><id value="x"/><gender value="male"/></Patient>');
+
+    expect(fromXml.bundle.entry).toEqual(fromJson.bundle.entry);
   });
 
   it('normalizes a resource end to end', () => {
@@ -81,6 +99,7 @@ describe('public surface', () => {
   });
 
   it('reports unsupported input through the exported error class', () => {
-    expect(() => createDefaultNormalizer().parse('<Patient/>')).toThrow(UnsupportedFormatError);
+    // Neither JSON nor XML claims a bare delimited record.
+    expect(() => createDefaultNormalizer().parse('id,name\n1,Ali')).toThrow(UnsupportedFormatError);
   });
 });

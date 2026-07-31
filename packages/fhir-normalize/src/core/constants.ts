@@ -51,3 +51,41 @@ export const ERROR_MESSAGE = {
 
 const formatList = (formats: readonly SourceFormat[]): string =>
   formats.length > 0 ? formats.join(', ') : 'none';
+
+/** Positions inside a Bundle that every parser can warn about. */
+export const BUNDLE_NODE = {
+  ENTRY: 'Bundle entry',
+  ENTRY_RESOURCE: 'Bundle entry resource',
+} as const;
+
+/**
+ * Structural warnings about Bundle shape. These live in core rather than in a
+ * parser because the same defect means the same thing whatever the input
+ * format was — a caller comparing two sources should see identical wording.
+ */
+export const BUNDLE_WARNING = {
+  MISSING_ENTRY: 'Bundle has no "entry" — normalized to an empty collection.',
+  ENTRY_NOT_ARRAY: 'Bundle "entry" was not an array — normalized to an empty collection.',
+  INVALID_TYPE: (received: unknown, fallback: string): string =>
+    `Bundle "type" was ${describeValue(received)}, which is not a valid R4 bundle type — defaulted to "${fallback}".`,
+  NOT_AN_OBJECT: (at: string): string => `${at} was not an object — dropped.`,
+  EMPTY_ENTRY: (at: string): string =>
+    `${at} carries no fields at all — dropped, since a Bundle entry must hold at least a resource, request, response, or fullUrl.`,
+  MISSING_RESOURCE_TYPE: (at: string): string =>
+    `${at} has no "resourceType" — kept as-is, but it is not a valid FHIR resource.`,
+  ENTRY_WITHOUT_RESOURCE: (at: string): string =>
+    `${at} has no "resource" — kept as-is (valid for transaction and history bundles).`,
+} as const;
+
+/** `Bundle entry` + index -> `Bundle entry [2]`. The index is omitted for a root node. */
+export const describeNode = (node: string, index?: number): string =>
+  index === undefined ? node : `${node} [${index}]`;
+
+/** Human-readable description of an unexpected value, for warning and error copy. */
+export const describeValue = (value: unknown): string => {
+  if (value === undefined) return 'absent';
+  if (value === null) return 'null';
+  if (Array.isArray(value)) return 'an array';
+  if (typeof value === 'string') return `the string "${value}"`;
+  return `a ${typeof value}`;
+};

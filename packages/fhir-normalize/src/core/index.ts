@@ -1,7 +1,18 @@
-export { createCollectionBundle, isBundle, isBundleRecord, isBundleType } from './bundle';
 export {
+  createCollectionBundle,
+  isBundle,
+  isBundleRecord,
+  isBundleType,
+  normalizeBundleRecord,
+  toResourceRecord,
+} from './bundle';
+export {
+  BUNDLE_NODE,
   BUNDLE_TYPE,
+  BUNDLE_WARNING,
   DEFAULT_BUNDLE_TYPE,
+  describeNode,
+  describeValue,
   ERROR_NAME,
   RESOURCE_TYPE,
   SOURCE_FORMAT,
