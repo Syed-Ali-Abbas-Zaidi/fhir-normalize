@@ -25,7 +25,7 @@ Early. `0.1.0`, API still firming up.
 | --- | --- |
 | FHIR JSON (resource, Bundle, or array) | ✅ Supported |
 | FHIR XML | ✅ Supported |
-| Cross-version STU3 / R5 → R4 | 🚧 Planned |
+| Cross-version STU3 / R5 → R4 | ✅ Supported (curated field set) |
 | HL7 v2, C-CDA, CSV | 📋 Later |
 
 ## Install
@@ -71,6 +71,37 @@ normalizer.parse('<Patient><id value="x"/><gender value="male"/></Patient>');
   unambiguous — `value[x]` suffixes encode their own type (`valueInteger` → number), plus a few
   fixed-type names. Anything else stays a string, deliberately: `<postalCode value="02134"/>`
   must not become `2134`.
+
+### Older and newer releases land on R4
+
+STU3 and R5 resources are migrated to R4 automatically, so the canonical shape holds across
+releases as well as serializations:
+
+```ts
+normalizer.parse('{"resourceType":"Observation","status":"final","context":{"reference":"Encounter/e"}}');
+// -> resource.encounter is set; resource.context is gone
+// -> meta.warnings: ['Observation [0]: STU3 field "context" is "encounter" in R4 — migrated. …']
+```
+
+FHIR resources do not record which release they belong to, so this is **marker-driven**: each
+migration fires on a field that only exists in the older or newer release. Genuine R4 input is
+returned untouched with no warnings, and a bundle mixing releases is handled resource by resource.
+
+Migrations that cannot be bridged losslessly say so in `meta.warnings` — STU3
+`Observation.related` carries a relationship type R4 has nowhere to put, and R5 `Encounter.class`
+allows several codings where R4 allows one.
+
+**The migration table is curated, not exhaustive.** It covers well-known differences across
+Observation, Condition, Procedure, Communication, CarePlan, MedicationRequest, Patient, Encounter,
+and DocumentReference. A wrong migration silently corrupts clinical data, so differences that
+aren't certain are deliberately left alone rather than guessed at. Inspect or extend it via the
+exported `VERSION_MIGRATION` table.
+
+To keep the source release intact, assemble a normalizer without the stage:
+
+```ts
+const normalizer = new Normalizer().register(fhirJsonParser).register(fhirXmlParser);
+```
 
 ### Warnings, not exceptions
 
@@ -139,7 +170,10 @@ Registering an already-registered format replaces it, so you can also override a
 
 | Export | What it is |
 | --- | --- |
-| `Normalizer` | The registry. `register()`, `parse()`, `detectFormat()`, `formats`. |
+| `Normalizer` | The registry. `register()`, `use()`, `parse()`, `detectFormat()`, `formats`, `stages`. |
+| `r4VersionTransform` | The built-in STU3/R5 → R4 post-parse stage. |
+| `ResultTransform` | The contract for a custom post-parse stage. |
+| `VERSION_MIGRATION`, `FHIR_VERSION` | The migration table and release tokens. |
 | `createDefaultNormalizer()` | A `Normalizer` with all built-in parsers registered. |
 | `fhirJsonParser`, `fhirXmlParser` | The built-in adapters. |
 | `ParseResult` | `{ bundle, meta: { sourceFormat, parsedAt, warnings } }`. |

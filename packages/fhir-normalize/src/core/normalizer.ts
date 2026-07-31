@@ -1,6 +1,6 @@
 import { ERROR_MESSAGE } from './constants';
 import { UnsupportedFormatError } from './errors';
-import type { FormatParser, ParseResult, SourceFormat } from './types';
+import type { FormatParser, ParseResult, ResultTransform, SourceFormat } from './types';
 
 /**
  * Routes raw input to the parser that can handle it, and nothing else.
@@ -17,14 +17,31 @@ export class Normalizer {
    */
   private readonly parsers = new Map<SourceFormat, FormatParser>();
 
+  /** Post-parse stages, keyed by name and applied in insertion order. */
+  private readonly transforms = new Map<string, ResultTransform>();
+
   /** Formats currently registered, in detection order. */
   get formats(): SourceFormat[] {
     return [...this.parsers.keys()];
   }
 
+  /** Post-parse stages currently registered, in the order they run. */
+  get stages(): string[] {
+    return [...this.transforms.keys()];
+  }
+
   /** Add (or replace) the adapter for a format. Chainable. */
   register(parser: FormatParser): this {
     this.parsers.set(parser.format, parser);
+    return this;
+  }
+
+  /**
+   * Add (or replace) a post-parse stage. Stages run in registration order,
+   * after whichever parser handled the input. Chainable.
+   */
+  use(transform: ResultTransform): this {
+    this.transforms.set(transform.name, transform);
     return this;
   }
 
@@ -54,7 +71,11 @@ export class Normalizer {
       );
     }
 
-    return parser.parse(raw);
+    let result = parser.parse(raw);
+    for (const transform of this.transforms.values()) {
+      result = transform.transform(result);
+    }
+    return result;
   }
 
   private findParser(raw: unknown): FormatParser | undefined {

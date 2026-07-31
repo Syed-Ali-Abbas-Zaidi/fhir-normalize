@@ -4,7 +4,7 @@ import { SOURCE_FORMAT } from './constants';
 import { UnsupportedFormatError } from './errors';
 import { Normalizer } from './normalizer';
 import { createParseResult } from './result';
-import type { FormatParser, SourceFormat } from './types';
+import type { FormatParser, ResultTransform, SourceFormat } from './types';
 
 /**
  * A parser that reports a fixed detection answer. The Normalizer only routes,
@@ -43,6 +43,65 @@ describe('Normalizer.register', () => {
 
     expect(normalizer.formats).toEqual([SOURCE_FORMAT.FHIR_JSON]);
     expect(replacement.parse).toHaveBeenCalledOnce();
+  });
+});
+
+describe('Normalizer.use', () => {
+  /** Appends a warning so we can see whether, and in what order, it ran. */
+  const createStubTransform = (name: string): ResultTransform => ({
+    name,
+    transform: vi.fn((result) => ({
+      ...result,
+      meta: { ...result.meta, warnings: [...result.meta.warnings, name] },
+    })),
+  });
+
+  const parseWith = (...transforms: ResultTransform[]) =>
+    transforms
+      .reduce(
+        (normalizer, transform) => normalizer.use(transform),
+        new Normalizer().register(createStubParser(SOURCE_FORMAT.FHIR_JSON, true)),
+      )
+      .parse('anything');
+
+  it('is chainable', () => {
+    const normalizer = new Normalizer();
+
+    expect(normalizer.use(createStubTransform('a'))).toBe(normalizer);
+  });
+
+  it('runs stages in registration order, after the parser', () => {
+    expect(
+      parseWith(createStubTransform('first'), createStubTransform('second')).meta.warnings,
+    ).toEqual(['first', 'second']);
+  });
+
+  it('exposes stage names in the order they run', () => {
+    const normalizer = new Normalizer()
+      .use(createStubTransform('first'))
+      .use(createStubTransform('second'));
+
+    expect(normalizer.stages).toEqual(['first', 'second']);
+  });
+
+  it('replaces rather than shadows when a stage name is reused', () => {
+    const replacement = createStubTransform('same');
+    const normalizer = new Normalizer()
+      .register(createStubParser(SOURCE_FORMAT.FHIR_JSON, true))
+      .use(createStubTransform('same'))
+      .use(replacement);
+
+    normalizer.parse('anything');
+
+    expect(normalizer.stages).toEqual(['same']);
+    expect(replacement.transform).toHaveBeenCalledOnce();
+  });
+
+  it('applies no stages by default', () => {
+    const normalizer = new Normalizer().register(createStubParser(SOURCE_FORMAT.FHIR_JSON, true));
+
+    expect(normalizer.stages).toEqual([]);
+    expect(normalizer.parse('anything').meta.warnings).toEqual([]);
   });
 });
 

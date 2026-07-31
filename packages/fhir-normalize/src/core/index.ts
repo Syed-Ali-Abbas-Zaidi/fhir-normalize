@@ -27,6 +27,7 @@ export type {
   FormatParser,
   ParseMeta,
   ParseResult,
+  ResultTransform,
   SourceFormat,
   UnknownRecord,
   WarningLog,

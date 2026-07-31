@@ -1,6 +1,7 @@
 import { Normalizer } from './core';
 import { fhirJsonParser } from './parsers/fhir-json';
 import { fhirXmlParser } from './parsers/fhir-xml';
+import { r4VersionTransform } from './version';
 
 export type {
   BundleType,
@@ -8,6 +9,7 @@ export type {
   FormatParser,
   ParseMeta,
   ParseResult,
+  ResultTransform,
   SourceFormat,
   WarningLog,
 } from './core';
@@ -31,6 +33,13 @@ export {
 } from './core';
 export { fhirJsonParser } from './parsers/fhir-json';
 export { fhirXmlParser } from './parsers/fhir-xml';
+export type { FhirVersion, FieldMigration, MigrationTable } from './version';
+export {
+  FHIR_VERSION,
+  r4VersionTransform,
+  VERSION_MIGRATION,
+  VERSION_TRANSFORM_NAME,
+} from './version';
 
 /**
  * A `Normalizer` with every built-in parser registered — the batteries-included
@@ -43,6 +52,10 @@ export { fhirXmlParser } from './parsers/fhir-xml';
  * Registration order is detection order. JSON goes first because its check is
  * the stricter of the two: it requires a decodable object with a
  * `resourceType`, while the XML check only looks for a leading `<`.
+ *
+ * Cross-version normalization runs as a post-parse stage, so STU3 and R5 input
+ * lands on R4 whichever serialization it arrived in. Drop it with
+ * `new Normalizer().register(...)` if you want the source release preserved.
  */
 export const createDefaultNormalizer = (): Normalizer =>
-  new Normalizer().register(fhirJsonParser).register(fhirXmlParser);
+  new Normalizer().register(fhirJsonParser).register(fhirXmlParser).use(r4VersionTransform);
