@@ -24,6 +24,7 @@ export const Playground = () => {
     detectedFormat,
     result,
     summaries,
+    normalized,
     warnings,
   } = usePlayground();
 
@@ -52,6 +53,7 @@ export const Playground = () => {
           <OutputPanel
             result={result}
             summaries={summaries}
+            normalized={normalized}
             warnings={warnings}
             tab={tab}
             onTabChange={setTab}

@@ -6,6 +6,7 @@ import { OUTPUT_TAB, RESULT_STATE, TAB_OPTIONS } from '@/constants';
 import { useCopy } from '@/hooks';
 import type { OutputTab } from '@/types';
 import { ExtractedView } from './extracted-view';
+import { NormalizedView } from './normalized-view';
 import styles from './output-panel.module.css';
 import { StandardView } from './standard-view';
 import { EmptyView, ErrorView } from './status-views';
@@ -15,6 +16,7 @@ import { WarningsView } from './warnings-view';
 export const OutputPanel = ({
   result,
   summaries,
+  normalized,
   warnings,
   tab,
   onTabChange,
@@ -26,6 +28,7 @@ export const OutputPanel = ({
   // has content here.
   const tabContent: Record<OutputTab, ReactNode> = {
     [OUTPUT_TAB.STANDARD]: parsed ? <StandardView bundle={result.bundle} /> : null,
+    [OUTPUT_TAB.NORMALIZED]: <NormalizedView resources={normalized} />,
     [OUTPUT_TAB.EXTRACTED]: <ExtractedView summaries={summaries} />,
     [OUTPUT_TAB.WARNINGS]: <WarningsView warnings={warnings} />,
   };

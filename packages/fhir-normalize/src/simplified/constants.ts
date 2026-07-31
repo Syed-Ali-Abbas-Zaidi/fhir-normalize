@@ -1,0 +1,94 @@
+import type { ValueKind } from './types';
+
+/** The discriminant on every normalized value. */
+export const VALUE_KIND = {
+  CONCEPT: 'concept',
+  QUANTITY: 'quantity',
+  REFERENCE: 'reference',
+  PERIOD: 'period',
+  RANGE: 'range',
+  RATIO: 'ratio',
+  NAME: 'name',
+  CONTACT: 'contact',
+  ADDRESS: 'address',
+  IDENTIFIER: 'identifier',
+  STRING: 'string',
+  BOOLEAN: 'boolean',
+  NUMBER: 'number',
+  DATE_TIME: 'dateTime',
+  UNKNOWN: 'unknown',
+} as const;
+
+/**
+ * How a declared field is read. Mostly mirrors {@link VALUE_KIND}, plus
+ * `CHOICE`, which resolves a `value[x]`-style element whose type is encoded in
+ * the element name rather than known up front.
+ */
+export const FIELD_KIND = {
+  CHOICE: 'choice',
+  CONCEPT: 'concept',
+  QUANTITY: 'quantity',
+  REFERENCE: 'reference',
+  PERIOD: 'period',
+  NAME: 'name',
+  CONTACT: 'contact',
+  ADDRESS: 'address',
+  IDENTIFIER: 'identifier',
+  ANNOTATION: 'annotation',
+  PRIMITIVE: 'primitive',
+  /** A backbone element with its own nested field specs. */
+  GROUP: 'group',
+} as const;
+
+/**
+ * FHIR type suffixes on choice elements, mapped to the kind they normalize to.
+ *
+ * This is spec-derived rather than guessed: `value[x]` is serialized as the
+ * base name plus the capitalised type name, so `valueQuantity` is a Quantity
+ * wherever it appears.
+ */
+export const TYPE_SUFFIX_KIND: Readonly<Record<string, ValueKind>> = {
+  Quantity: VALUE_KIND.QUANTITY,
+  Age: VALUE_KIND.QUANTITY,
+  Count: VALUE_KIND.QUANTITY,
+  Distance: VALUE_KIND.QUANTITY,
+  Duration: VALUE_KIND.QUANTITY,
+  Money: VALUE_KIND.QUANTITY,
+  SimpleQuantity: VALUE_KIND.QUANTITY,
+  CodeableConcept: VALUE_KIND.CONCEPT,
+  Coding: VALUE_KIND.CONCEPT,
+  Reference: VALUE_KIND.REFERENCE,
+  Period: VALUE_KIND.PERIOD,
+  Range: VALUE_KIND.RANGE,
+  Ratio: VALUE_KIND.RATIO,
+  HumanName: VALUE_KIND.NAME,
+  ContactPoint: VALUE_KIND.CONTACT,
+  Address: VALUE_KIND.ADDRESS,
+  Identifier: VALUE_KIND.IDENTIFIER,
+  String: VALUE_KIND.STRING,
+  Code: VALUE_KIND.STRING,
+  Markdown: VALUE_KIND.STRING,
+  Uri: VALUE_KIND.STRING,
+  Url: VALUE_KIND.STRING,
+  Canonical: VALUE_KIND.STRING,
+  Oid: VALUE_KIND.STRING,
+  Uuid: VALUE_KIND.STRING,
+  Id: VALUE_KIND.STRING,
+  Base64Binary: VALUE_KIND.STRING,
+  Boolean: VALUE_KIND.BOOLEAN,
+  Integer: VALUE_KIND.NUMBER,
+  Integer64: VALUE_KIND.NUMBER,
+  Decimal: VALUE_KIND.NUMBER,
+  UnsignedInt: VALUE_KIND.NUMBER,
+  PositiveInt: VALUE_KIND.NUMBER,
+  DateTime: VALUE_KIND.DATE_TIME,
+  Date: VALUE_KIND.DATE_TIME,
+  Instant: VALUE_KIND.DATE_TIME,
+  Time: VALUE_KIND.DATE_TIME,
+};
+
+/** Rendered when a value carries no displayable text at all. */
+export const EMPTY_TEXT = '—';
+
+/** Separator between the parts of a composed label, e.g. `Body Weight · 74.5 kg`. */
+export const LABEL_SEPARATOR = ' · ';

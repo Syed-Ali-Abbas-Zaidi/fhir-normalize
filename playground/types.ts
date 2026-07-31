@@ -1,4 +1,4 @@
-import type { ParseResult, SourceFormat } from 'fhir-normalize';
+import type { ParseResult, SimplifiedResource, SourceFormat } from 'fhir-normalize';
 import type { JSON_TOKEN, OUTPUT_TAB, PARSE_MODE, RESULT_STATE } from '@/constants';
 
 export type ParseMode = (typeof PARSE_MODE)[keyof typeof PARSE_MODE];
@@ -64,5 +64,7 @@ export interface PlaygroundState {
   detectedFormat: SourceFormat | null;
   result: PlaygroundResult;
   summaries: ResourceSummary[];
+  /** The simplified view — choice types resolved, datatypes flattened. */
+  normalized: SimplifiedResource[];
   warnings: string[];
 }

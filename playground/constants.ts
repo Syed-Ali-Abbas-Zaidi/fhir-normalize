@@ -13,6 +13,7 @@ export const PARSE_MODE = {
 
 export const OUTPUT_TAB = {
   STANDARD: 'standard',
+  NORMALIZED: 'normalized',
   EXTRACTED: 'extracted',
   WARNINGS: 'warnings',
 } as const;
@@ -59,6 +60,7 @@ export const MODE_OPTIONS: readonly ModeOption[] = [
 
 export const TAB_OPTIONS: readonly TabConfig[] = [
   { value: OUTPUT_TAB.STANDARD, label: 'Standard shape' },
+  { value: OUTPUT_TAB.NORMALIZED, label: 'Normalized' },
   { value: OUTPUT_TAB.EXTRACTED, label: 'Extracted' },
   { value: OUTPUT_TAB.WARNINGS, label: 'Warnings' },
 ];

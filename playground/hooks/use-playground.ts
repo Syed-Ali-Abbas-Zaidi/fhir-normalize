@@ -1,5 +1,6 @@
 'use client';
 
+import { simplifyBundle } from 'fhir-normalize';
 import { useMemo, useState } from 'react';
 import { defaultSample, OUTPUT_TAB, PARSE_MODE, RESULT_STATE } from '@/constants';
 import type { OutputTab, ParseMode, PlaygroundState } from '@/types';
@@ -30,6 +31,11 @@ export const usePlayground = (): PlaygroundState => {
     [resources],
   );
 
+  const normalized = useMemo(
+    () => (result.state === RESULT_STATE.OK ? simplifyBundle(result.bundle) : []),
+    [result],
+  );
+
   const warnings = result.state === RESULT_STATE.OK ? result.meta.warnings : [];
 
   return {
@@ -42,6 +48,7 @@ export const usePlayground = (): PlaygroundState => {
     detectedFormat,
     result,
     summaries,
+    normalized,
     warnings,
   };
 };
