@@ -1,3 +1,9 @@
+/**
+ * The canonical output types, re-exported so consumers can name what they get
+ * back without taking their own direct dependency on `@types/fhir`.
+ */
+export type { Bundle, BundleEntry, FhirResource } from 'fhir/r4';
+
 import { Normalizer } from './core';
 import { fhirJsonParser } from './parsers/fhir-json';
 import { fhirXmlParser } from './parsers/fhir-xml';

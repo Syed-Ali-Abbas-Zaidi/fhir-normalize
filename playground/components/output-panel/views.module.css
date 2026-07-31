@@ -1,0 +1,197 @@
+/* Standard shape ------------------------------------------------------- */
+
+.code {
+  margin: 0;
+  padding: 16px 18px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.65;
+  color: var(--console-soft);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.key {
+  color: var(--token-key);
+}
+.string {
+  color: var(--token-string);
+}
+.number {
+  color: var(--token-number);
+}
+.literal {
+  color: var(--token-literal);
+}
+.plain {
+  color: var(--console-soft);
+}
+
+/* Extracted ------------------------------------------------------------ */
+
+.cards {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.card {
+  background: var(--console-card);
+  border: 1px solid var(--console-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 13px;
+  border-bottom: 1px solid var(--console-border);
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--brand);
+  flex-shrink: 0;
+}
+
+.cardTitle {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--console-ink);
+}
+
+.cardBody {
+  padding: 6px 13px 11px;
+}
+
+.row {
+  display: flex;
+  gap: 12px;
+  padding: 5px 0;
+  border-bottom: 1px solid #16262f;
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.rowLabel {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--console-faint);
+  min-width: 92px;
+  flex-shrink: 0;
+}
+
+.rowValue {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: #cddbe2;
+  word-break: break-word;
+}
+
+/* Warnings and errors -------------------------------------------------- */
+
+.notices {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.notice {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  background: var(--alert-bg);
+  border: 1px solid var(--alert-border);
+  border-radius: 9px;
+  padding: 11px 12px;
+}
+
+.noticeIcon {
+  color: var(--alert-ink);
+  margin-top: 1px;
+  flex-shrink: 0;
+}
+
+.noticeText {
+  font-size: 12.5px;
+  color: var(--alert-soft);
+  line-height: 1.5;
+}
+
+.clean {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--ok);
+}
+
+.error {
+  padding: 20px;
+}
+
+.errorBox {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  background: var(--alert-bg);
+  border: 1px solid var(--alert-strong-border);
+  border-radius: 10px;
+  padding: 13px 14px;
+}
+
+.errorName {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--alert-ink);
+  margin-bottom: 3px;
+}
+
+.errorMessage {
+  font-size: 12.5px;
+  color: #c8b6a6;
+  line-height: 1.5;
+}
+
+/* Empty ---------------------------------------------------------------- */
+
+.empty {
+  padding: 40px 24px;
+  text-align: center;
+  color: #5f7484;
+}
+
+.emptyIcon {
+  display: inline-grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  background: var(--console-card);
+  border: 1px solid var(--console-border);
+  margin-bottom: 14px;
+  color: #3f6b73;
+}
+
+.emptyTitle {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--console-soft);
+}
+
+.emptyBody {
+  font-size: 12.5px;
+  margin-top: 6px;
+  line-height: 1.55;
+}

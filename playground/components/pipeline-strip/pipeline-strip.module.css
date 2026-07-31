@@ -1,0 +1,77 @@
+.strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 12px 14px;
+  margin: 16px 0 18px;
+  list-style: none;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  scrollbar-width: thin;
+}
+
+.stage {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+}
+
+/* The connector between stages is decoration on the sequence, not an item. */
+.stage + .stage::before {
+  content: "\2192";
+  color: #c2cfd2;
+  font-size: 14px;
+  line-height: 1;
+  margin-right: 3px;
+}
+
+.label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  font-weight: 500;
+  color: var(--faint);
+  white-space: nowrap;
+  transition: color 0.18s ease;
+}
+
+.label[data-active="true"] {
+  color: var(--ink);
+}
+
+.label[data-terminal="true"] {
+  font-weight: 600;
+}
+
+.label[data-terminal="true"][data-active="true"] {
+  color: var(--brand);
+}
+
+.badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 5px;
+  border: 1px solid transparent;
+  background: var(--brand-tint);
+  color: var(--brand);
+  white-space: nowrap;
+}
+
+.badge[data-empty="true"] {
+  background: transparent;
+  color: var(--faint);
+  border-color: var(--line);
+}
+
+.icon {
+  color: var(--faint);
+  transition: color 0.18s ease;
+}
+
+.icon[data-active="true"] {
+  color: var(--brand);
+}

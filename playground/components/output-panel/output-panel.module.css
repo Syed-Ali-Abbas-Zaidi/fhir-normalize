@@ -1,0 +1,120 @@
+.panel {
+  background: var(--console);
+  border: 1px solid var(--console-line);
+  border-radius: var(--radius-panel);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--console-line);
+}
+
+.headerMeta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--console-dim);
+}
+
+.pill {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  padding: 2px 8px;
+  border-radius: 5px;
+  background: #13232f;
+  color: #7fa0b0;
+  border: 1px solid #1e3341;
+  white-space: nowrap;
+}
+
+.copy {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 5px 9px;
+  border-radius: var(--radius-control);
+  border: 1px solid #21323f;
+  background: transparent;
+  color: #9fb2bf;
+  transition: border-color 0.15s ease;
+}
+
+.copy:hover:not(:disabled) {
+  border-color: var(--brand);
+  color: var(--console-ink);
+}
+
+.copy:disabled {
+  color: #3f505d;
+  cursor: default;
+}
+
+.tabs {
+  display: flex;
+  gap: 2px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--console-line);
+}
+
+.tab {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--console-faint);
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.tab:hover {
+  color: var(--console-soft);
+}
+
+.tab[aria-selected="true"] {
+  border-bottom-color: var(--brand);
+  color: var(--console-ink);
+}
+
+.body {
+  flex: 1;
+  overflow: auto;
+  min-height: 300px;
+  max-height: 460px;
+  scrollbar-width: thin;
+  scrollbar-color: #26384a transparent;
+}
+
+.fade {
+  animation: fade 0.28s ease;
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

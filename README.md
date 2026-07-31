@@ -183,14 +183,29 @@ Registering an already-registered format replaces it, so you can also override a
 | `SOURCE_FORMAT`, `BUNDLE_TYPE`, `RESOURCE_TYPE` | Token constants; the string unions derive from these. |
 | `isBundle`, `isBundleType` | Type guards. |
 
+## Playground
+
+[`playground/`](playground) is a Next.js app that runs the library in the browser: paste raw data
+on the left, watch it come out as the standard shape on the right, with the detected format, the
+extracted resources, and the warnings each on their own tab.
+
+It imports `fhir-normalize` from the workspace rather than a published build, so the demo cannot
+drift from the library — change a parser and the page reflects it.
+
+```bash
+pnpm --filter fhir-normalize build   # the playground consumes dist/
+pnpm --filter playground dev
+```
+
 ## Development
 
-This repo is a pnpm workspace. The package lives in [`packages/fhir-normalize`](packages/fhir-normalize).
+This repo is a pnpm workspace. The library lives in
+[`packages/fhir-normalize`](packages/fhir-normalize).
 
 ```bash
 pnpm install
 pnpm test        # vitest
-pnpm typecheck   # tsc --noEmit
+pnpm typecheck   # tsc --noEmit, both packages
 pnpm lint        # biome
 pnpm build       # tsup -> dual ESM + CJS + .d.ts
 ```
