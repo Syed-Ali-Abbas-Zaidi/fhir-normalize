@@ -1,0 +1,19 @@
+{
+  "name": "fhir-normalize-workspace",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.17.0",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "pnpm --filter fhir-normalize build",
+    "test": "pnpm --filter fhir-normalize test",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.6"
+  }
+}

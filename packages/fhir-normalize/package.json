@@ -1,0 +1,58 @@
+{
+  "name": "fhir-normalize",
+  "version": "0.1.0",
+  "description": "Ingest healthcare data in multiple formats (FHIR JSON, FHIR XML, more to come) and get back one standard shape: a FHIR R4 Bundle.",
+  "keywords": [
+    "fhir",
+    "hl7",
+    "healthcare",
+    "normalize",
+    "r4",
+    "interoperability",
+    "typescript"
+  ],
+  "license": "MIT",
+  "author": "Syed Ali Abbas Zaidi",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@types/fhir": "^0.0.44"
+  },
+  "devDependencies": {
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
