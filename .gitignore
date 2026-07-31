@@ -14,3 +14,7 @@ DESIGN.md
 
 # Next.js generated
 next-env.d.ts
+
+# Copied into the package at pack time by scripts/prepack.mjs
+/packages/fhir-normalize/README.md
+/packages/fhir-normalize/LICENSE

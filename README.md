@@ -1,5 +1,9 @@
 # fhir-normalize
 
+[![npm](https://img.shields.io/npm/v/fhir-normalize.svg)](https://www.npmjs.com/package/fhir-normalize)
+[![CI](https://github.com/Syed-Ali-Abbas-Zaidi/fhir-normalize/actions/workflows/ci.yml/badge.svg)](https://github.com/Syed-Ali-Abbas-Zaidi/fhir-normalize/actions/workflows/ci.yml)
+[![license](https://img.shields.io/npm/l/fhir-normalize.svg)](LICENSE)
+
 Ingest healthcare data in several formats and get back **one standard shape**: a FHIR R4 `Bundle`.
 
 Write your downstream logic once, against one type, instead of branching per source system.
@@ -14,12 +18,18 @@ bundle.entry?.forEach((entry) => console.log(entry.resource?.resourceType));
 console.log(meta.sourceFormat, meta.warnings);
 ```
 
-`bundle` is a `Bundle` from [`@types/fhir`](https://www.npmjs.com/package/@types/fhir) — the real
-industry standard, not a bespoke dialect.
+`bundle` is a FHIR R4 `Bundle` — the real industry standard, not a bespoke dialect. The type comes
+from [`@types/fhir`](https://www.npmjs.com/package/@types/fhir) and is re-exported, so you can name
+it without adding your own dependency:
+
+```ts
+import type { Bundle, FhirResource } from 'fhir-normalize';
+```
 
 ## Status
 
-Early. `0.1.0`, API still firming up.
+`1.0.0`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform`, and the `Normalizer`
+methods — is stable under semver; anything breaking lands in a major.
 
 | Format | Status |
 | --- | --- |
@@ -204,11 +214,40 @@ This repo is a pnpm workspace. The library lives in
 
 ```bash
 pnpm install
+pnpm verify      # build, lint, typecheck, test — the same gate CI runs
+```
+
+Individually:
+
+```bash
+pnpm build       # tsup -> dual ESM + CJS + .d.ts
 pnpm test        # vitest
 pnpm typecheck   # tsc --noEmit, both packages
 pnpm lint        # biome
-pnpm build       # tsup -> dual ESM + CJS + .d.ts
 ```
+
+Build the library first. The playground resolves `fhir-normalize`'s types from `dist/`, so a clean
+checkout cannot typecheck or build it until the library has been built once — which is why `verify`
+and the CI workflow both start there.
+
+## Releasing
+
+The version tag drives the release; pushing one runs the full gate and publishes only if it passes
+and the tag matches the package version.
+
+```bash
+git tag v1.0.0 && git push origin v1.0.0
+```
+
+Needs an `NPM_TOKEN` repository secret with publish rights. To publish by hand instead:
+
+```bash
+pnpm build
+pnpm --filter fhir-normalize publish --access public
+```
+
+`prepack` refuses to pack without a build and copies the README and licence into the package, since
+npm only picks those up from the package directory.
 
 The canonical model is FHIR R4, and every format is normalized to it by an independent adapter
 behind a single registry, so adding a format never changes existing code.
