@@ -42,6 +42,20 @@ export interface FormatParser<TRaw = unknown> {
   parse(raw: TRaw): ParseResult;
 }
 
+/**
+ * A post-parse stage, applied to every `ParseResult` regardless of which
+ * adapter produced it.
+ *
+ * This is the seam for work that is not parsing — cross-version normalization
+ * is the built-in case. Keeping it separate leaves `Normalizer` responsible
+ * only for routing, and leaves parsers ignorant of anything but their format.
+ */
+export interface ResultTransform {
+  /** Unique within a {@link Normalizer}. Re-using a name replaces the stage. */
+  readonly name: string;
+  transform(result: ParseResult): ParseResult;
+}
+
 /** Accumulates non-fatal warnings while a parser runs. */
 export interface WarningLog {
   add(message: string): void;

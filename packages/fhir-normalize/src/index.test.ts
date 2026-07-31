@@ -10,6 +10,7 @@ import {
   Normalizer,
   SOURCE_FORMAT,
   UnsupportedFormatError,
+  VERSION_TRANSFORM_NAME,
 } from './index';
 import { patientFixture } from './parsers/fhir-json/__fixtures__';
 
@@ -57,6 +58,55 @@ describe('createDefaultNormalizer', () => {
 
     expect(first.formats).toContain(SOURCE_FORMAT.HL7V2);
     expect(second.formats).not.toContain(SOURCE_FORMAT.HL7V2);
+  });
+});
+
+describe('createDefaultNormalizer — cross-version', () => {
+  it('runs the R4 version stage', () => {
+    expect(createDefaultNormalizer().stages).toEqual([VERSION_TRANSFORM_NAME]);
+  });
+
+  it('normalizes STU3 XML all the way to R4, crossing both serialization and release', () => {
+    const { bundle, meta } = createDefaultNormalizer().parse(
+      `<Observation xmlns="http://hl7.org/fhir">
+         <id value="obs-1"/>
+         <status value="final"/>
+         <context><reference value="Encounter/enc-1"/></context>
+         <comment value="Taken after fasting."/>
+       </Observation>`,
+    );
+
+    const resource = bundle.entry?.[0]?.resource as unknown as Record<string, unknown>;
+
+    expect(meta.sourceFormat).toBe(SOURCE_FORMAT.FHIR_XML);
+    expect(resource.encounter).toEqual({ reference: 'Encounter/enc-1' });
+    expect(resource.note).toEqual([{ text: 'Taken after fasting.' }]);
+    expect(resource.context).toBeUndefined();
+    expect(resource.comment).toBeUndefined();
+  });
+
+  it('reaches the same R4 resource from STU3 JSON and STU3 XML', () => {
+    const normalizer = createDefaultNormalizer();
+    const fromJson = normalizer.parse(
+      '{"resourceType":"Observation","id":"o","status":"final","context":{"reference":"Encounter/e"}}',
+    );
+    const fromXml = normalizer.parse(
+      '<Observation><id value="o"/><status value="final"/><context><reference value="Encounter/e"/></context></Observation>',
+    );
+
+    expect(fromXml.bundle.entry).toEqual(fromJson.bundle.entry);
+  });
+
+  it('can be assembled without the version stage when the source release matters', () => {
+    const normalizer = new Normalizer().register(fhirJsonParser);
+    const { bundle, meta } = normalizer.parse(
+      '{"resourceType":"Patient","id":"p","animal":{"species":{"text":"Canine"}}}',
+    );
+    const resource = bundle.entry?.[0]?.resource as unknown as Record<string, unknown>;
+
+    expect(normalizer.stages).toEqual([]);
+    expect(resource.animal).toBeDefined();
+    expect(meta.warnings).toEqual([]);
   });
 });
 
