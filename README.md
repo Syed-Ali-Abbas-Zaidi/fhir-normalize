@@ -141,7 +141,8 @@ pnpm lint        # biome
 pnpm build       # tsup -> dual ESM + CJS + .d.ts
 ```
 
-Design rationale, scope, and the decision log live in [DESIGN.md](DESIGN.md).
+The canonical model is FHIR R4, and every format is normalized to it by an independent adapter
+behind a single registry, so adding a format never changes existing code.
 
 ## License
 

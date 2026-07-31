@@ -8,3 +8,6 @@ out/
 .env
 .env.local
 .vercel
+
+# Internal design notes — kept local, not published
+DESIGN.md

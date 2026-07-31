@@ -50,8 +50,8 @@ describe('public surface', () => {
   });
 
   it('supports a custom adapter built only from exported helpers, with no core changes', () => {
-    // The open/closed claim from DESIGN.md §6, exercised for real: a format the
-    // library does not implement, added from outside the package.
+    // The open/closed claim, exercised for real: a format the library does not
+    // implement, added from outside the package with no changes to the core.
     const csvParser: FormatParser = {
       format: SOURCE_FORMAT.CSV,
       canParse: (raw) => typeof raw === 'string' && raw.startsWith('id,'),
