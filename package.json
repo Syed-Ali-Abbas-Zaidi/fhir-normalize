@@ -9,8 +9,8 @@
   },
   "scripts": {
     "build": "pnpm --filter fhir-normalize build",
-    "build:playground": "pnpm build && pnpm --filter playground build",
-    "dev": "pnpm build && pnpm --filter playground dev",
+    "build:playground": "pnpm --filter playground build",
+    "dev": "pnpm --filter playground dev",
     "test": "pnpm --filter fhir-normalize test",
     "typecheck": "pnpm -r typecheck",
     "lint": "biome check .",
