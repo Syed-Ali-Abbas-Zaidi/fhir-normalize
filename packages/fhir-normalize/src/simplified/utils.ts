@@ -13,9 +13,11 @@ import {
   toPeriod,
   toPrimitive,
   toQuantity,
+  toRange,
+  toRatio,
   toReference,
 } from './datatypes';
-import { COMMON_ELEMENT, RESOURCE_SHAPE } from './shapes';
+import { COMMON_ELEMENT, shapeFor } from './shapes';
 import type {
   FieldKind,
   FieldSpec,
@@ -31,6 +33,8 @@ import type {
 const byFieldKind: Partial<Record<FieldKind, (value: unknown) => NormalizedValue>> = {
   [FIELD_KIND.CONCEPT]: toConcept,
   [FIELD_KIND.QUANTITY]: toQuantity,
+  [FIELD_KIND.RATIO]: toRatio,
+  [FIELD_KIND.RANGE]: toRange,
   [FIELD_KIND.REFERENCE]: toReference,
   [FIELD_KIND.PERIOD]: toPeriod,
   [FIELD_KIND.NAME]: toName,
@@ -109,7 +113,7 @@ const readFields = (
 export const simplifyResource = (resource: unknown): SimplifiedResource => {
   const record = isRecord(resource) ? resource : {};
   const resourceType = str(record.resourceType) ?? 'Unknown';
-  const shape = RESOURCE_SHAPE[resourceType];
+  const shape = shapeFor(resourceType);
 
   const { fields, consumed } = shape
     ? readFields(record, shape.fields)

@@ -28,6 +28,8 @@ export const FIELD_KIND = {
   CHOICE: 'choice',
   CONCEPT: 'concept',
   QUANTITY: 'quantity',
+  RATIO: 'ratio',
+  RANGE: 'range',
   REFERENCE: 'reference',
   PERIOD: 'period',
   NAME: 'name',

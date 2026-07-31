@@ -1,6 +1,13 @@
 export { normalizeByKind, resolveChoice } from './choice';
 export { FIELD_KIND, VALUE_KIND } from './constants';
-export { COMMON_ELEMENT, RESOURCE_SHAPE } from './shapes';
+export {
+  ADMINISTRATIVE_SHAPE,
+  CLINICAL_ALIAS,
+  CLINICAL_SHAPE,
+  COMMON_ELEMENT,
+  RESOURCE_SHAPE,
+  shapeFor,
+} from './shapes';
 export type {
   FieldKind,
   FieldSpec,
