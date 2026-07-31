@@ -1,0 +1,54 @@
+name: Release
+
+# Fires only for a version tag, e.g. `git tag v1.0.0 && git push origin v1.0.0`.
+# Requires an NPM_TOKEN repository secret with publish rights; without it the
+# job fails at the publish step rather than publishing anything partial.
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      # pnpm 11 requires Node 22.13 or newer; this is the toolchain version,
+      # not the range the published package supports.
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build library
+        run: pnpm --filter fhir-normalize build
+
+      # The same gate as CI. A tag must not be able to publish something that
+      # would have failed a pull request.
+      - name: Verify
+        run: |
+          pnpm lint
+          pnpm typecheck
+          pnpm test
+
+      - name: Confirm the tag matches the package version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg="$(node -p "require('./packages/fhir-normalize/package.json').version")"
+          if [ "$tag" != "$pkg" ]; then
+            echo "Tag $tag does not match package version $pkg." >&2
+            exit 1
+          fi
+
+      - name: Publish
+        run: pnpm --filter fhir-normalize publish --access public --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

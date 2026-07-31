@@ -4,14 +4,18 @@
   "type": "module",
   "packageManager": "pnpm@11.17.0",
   "engines": {
-    "node": ">=18"
+    "//": "Development toolchain only — pnpm 11 requires this. The published package supports Node >=18; see packages/fhir-normalize.",
+    "node": ">=22.13"
   },
   "scripts": {
     "build": "pnpm --filter fhir-normalize build",
+    "build:playground": "pnpm build && pnpm --filter playground build",
+    "dev": "pnpm build && pnpm --filter playground dev",
     "test": "pnpm --filter fhir-normalize test",
     "typecheck": "pnpm -r typecheck",
     "lint": "biome check .",
-    "lint:fix": "biome check --write ."
+    "lint:fix": "biome check --write .",
+    "verify": "pnpm build && pnpm lint && pnpm typecheck && pnpm test"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.6"
