@@ -207,6 +207,13 @@ pnpm --filter fhir-normalize build   # the playground consumes dist/
 pnpm --filter playground dev
 ```
 
+Deployment settings live in [`vercel.json`](vercel.json) rather than the Vercel dashboard, so they
+are reviewable and travel with the repo. Two of them are load-bearing:
+
+- `--prod=false` on the install. The library is built with `tsup`, a devDependency, so pruning dev
+  dependencies breaks the build before Next.js starts.
+- `buildCommand` builds the library before the app, for the same reason the CI job order does.
+
 ## Development
 
 This repo is a pnpm workspace. The library lives in
