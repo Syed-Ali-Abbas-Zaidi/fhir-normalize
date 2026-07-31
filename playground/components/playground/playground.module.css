@@ -1,0 +1,61 @@
+.page {
+  min-height: 100vh;
+  padding: 22px 20px 40px;
+}
+
+.shell {
+  max-width: var(--shell-width);
+  margin: 0 auto;
+}
+
+.masthead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mark {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: var(--brand);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: #fff;
+}
+
+.wordmark {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 16px;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.tagline {
+  font-size: 12.5px;
+  color: var(--soft);
+  margin: 1px 0 0;
+}
+
+.panes {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+@media (min-width: 900px) {
+  .panes {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.colophon {
+  margin-top: 16px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--faint);
+}

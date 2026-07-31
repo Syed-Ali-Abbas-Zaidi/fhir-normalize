@@ -1,0 +1,94 @@
+/*
+ * Design tokens. The palette is the clinical light surface from the design
+ * doc, against the dark "console" that the normalized output lands in — the
+ * light-to-dark crossing is the transformation, made visual.
+ */
+:root {
+  --bg: #f5f8f8;
+  --panel: #ffffff;
+  --ink: #0f1e2a;
+  --soft: #5c6e78;
+  --faint: #8a9aa3;
+  --line: #e2eaeb;
+  --brand: #0c7c84;
+  --brand-tint: #e4f1f1;
+
+  --console: #0a1620;
+  --console-line: #16232f;
+  --console-card: #0f2029;
+  --console-border: #1c2f3b;
+  --console-ink: #dfe9ee;
+  --console-soft: #8aa0ad;
+  --console-faint: #6c8090;
+  --console-dim: #5f7385;
+
+  --alert-bg: #2a1a10;
+  --alert-border: #3d2814;
+  --alert-strong-border: #4a2f18;
+  --alert-ink: #e6ab7c;
+  --alert-soft: #d3c2b2;
+  --ok: #7fae9b;
+
+  --token-key: #68d5c9;
+  --token-string: #b5d98a;
+  --token-number: #e6ab7c;
+  --token-literal: #c79be3;
+
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Fira Code", Menlo, Consolas, monospace;
+
+  --radius-panel: 14px;
+  --radius-control: 7px;
+  --radius-pill: 20px;
+
+  --shell-width: 1120px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+/* One visible focus treatment for every control, on both surfaces. */
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/*
+ * `!important` is load-bearing here: this block has to beat every component
+ * animation, which is the entire point of a reduced-motion kill switch.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    /* biome-ignore lint/complexity/noImportantStyles: must override component animations */
+    animation-duration: 0.01ms !important;
+    /* biome-ignore lint/complexity/noImportantStyles: must override component animations */
+    animation-iteration-count: 1 !important;
+    /* biome-ignore lint/complexity/noImportantStyles: must override component animations */
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,7 +1,14 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.5.6/schema.json",
   "files": {
-    "includes": ["**", "!**/dist", "!**/node_modules", "!**/.next", "!prototype"]
+    "includes": [
+      "**",
+      "!**/dist",
+      "!**/node_modules",
+      "!**/.next",
+      "!**/next-env.d.ts",
+      "!prototype"
+    ]
   },
   "formatter": {
     "enabled": true,
