@@ -36,7 +36,7 @@ methods — is stable under semver; anything breaking lands in a major.
 | FHIR JSON (resource, Bundle, or array) | ✅ Supported |
 | FHIR XML | ✅ Supported |
 | Cross-version STU3 / R5 → R4 | ✅ Supported (curated field set) |
-| Simplified view (choice types resolved) | ✅ Supported (curated resource shapes) |
+| Simplified view (choice types resolved) | ✅ Supported (full Clinical section) |
 | HL7 v2, C-CDA, CSV | 📋 Later |
 
 ## Install
@@ -158,9 +158,19 @@ Datatypes are flattened to fixed shapes too, so the variation *within* a field d
 **Every value carries `text`.** A consumer that only wants to display something never switches on
 `kind` at all.
 
+**Coverage: the whole Clinical section** of the
+[FHIR resource list](https://build.fhir.org/resourcelist.html) — Summary, Diagnostics,
+Medications, Care Provision, and Request &amp; Response — plus the R4 members the current build
+renamed or dropped, and the administrative resources clinical payloads reference constantly
+(Patient, Practitioner, Encounter, Organization, Location, and more). A test transcribes that list
+and fails if any entry loses its shape.
+
+Resource types renamed across releases resolve through an alias, so `DeviceUsage` (R5) and
+`DeviceAssociation` (R6) both land on the R4 `DeviceUseStatement` shape.
+
 Nothing is dropped quietly: elements a shape does not declare are listed in `unmapped`, so a
-coverage gap is visible rather than silent. Shapes are curated per resource type
-(`RESOURCE_SHAPE`); a resource type with no shape still gets its choice elements resolved.
+coverage gap is visible rather than silent. A resource type with no shape at all still gets its
+choice elements resolved — it just has no curated field ordering.
 
 This layer is **additive and read-only** — it takes the canonical Bundle and returns a new
 structure, leaving `parse()` output untouched.
