@@ -39,6 +39,40 @@ export {
 } from './core';
 export { fhirJsonParser } from './parsers/fhir-json';
 export { fhirXmlParser } from './parsers/fhir-xml';
+export type {
+  FieldKind,
+  FieldSpec,
+  NormalizedAddress,
+  NormalizedBoolean,
+  NormalizedCoding,
+  NormalizedConcept,
+  NormalizedContactPoint,
+  NormalizedDateTime,
+  NormalizedIdentifier,
+  NormalizedName,
+  NormalizedNumber,
+  NormalizedPeriod,
+  NormalizedQuantity,
+  NormalizedRange,
+  NormalizedRatio,
+  NormalizedReference,
+  NormalizedString,
+  NormalizedUnknown,
+  NormalizedValue,
+  ResourceShape,
+  SimplifiedFields,
+  SimplifiedResource,
+  ValueKind,
+} from './simplified';
+export {
+  FIELD_KIND,
+  normalizeByKind,
+  RESOURCE_SHAPE,
+  resolveChoice,
+  simplifyBundle,
+  simplifyResource,
+  VALUE_KIND,
+} from './simplified';
 export type { FhirVersion, FieldMigration, MigrationTable } from './version';
 export {
   FHIR_VERSION,

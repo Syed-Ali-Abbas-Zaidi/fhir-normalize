@@ -36,6 +36,7 @@ methods — is stable under semver; anything breaking lands in a major.
 | FHIR JSON (resource, Bundle, or array) | ✅ Supported |
 | FHIR XML | ✅ Supported |
 | Cross-version STU3 / R5 → R4 | ✅ Supported (curated field set) |
+| Simplified view (choice types resolved) | ✅ Supported (curated resource shapes) |
 | HL7 v2, C-CDA, CSV | 📋 Later |
 
 ## Install
@@ -113,6 +114,57 @@ To keep the source release intact, assemble a normalizer without the stage:
 const normalizer = new Normalizer().register(fhirJsonParser).register(fhirXmlParser);
 ```
 
+### One predictable shape per resource
+
+Normalizing the *format* still leaves FHIR's own polymorphism. `Observation.value[x]` alone arrives
+as `valueQuantity`, `valueCodeableConcept`, `valueString`, `valueBoolean`, `valueRange`,
+`valueRatio`, `valuePeriod` — so downstream code keeps branching. `simplifyBundle` removes that:
+
+```ts
+import { createDefaultNormalizer, simplifyBundle } from 'fhir-normalize';
+
+const { bundle } = createDefaultNormalizer().parse(raw);
+const [observation] = simplifyBundle(bundle);
+
+observation.display;            // 'Body Weight · 74.5 kg'
+observation.fields.value.kind;  // 'quantity'
+observation.fields.value.text;  // '74.5 kg'
+```
+
+Whatever the input used, the value lands on **one key** with a `kind` discriminant:
+
+| Input element | Output | `kind` | `text` |
+| --- | --- | --- | --- |
+| `valueQuantity` | `value` | `quantity` | `74.5 kg` |
+| `valueCodeableConcept` | `value` | `concept` | `Present` |
+| `valueString` | `value` | `string` | `Sample looked normal` |
+| `valueRange` | `value` | `range` | `4.5 mmol/L – 6.1 mmol/L` |
+| `valueRatio` | `value` | `ratio` | `1 mg / 5 mL` |
+
+The same applies to every choice element — `effective[x]`, `onset[x]`, `performed[x]`,
+`occurrence[x]`, `medication[x]`. This is read from the element name, which the spec guarantees
+encodes the type.
+
+Datatypes are flattened to fixed shapes too, so the variation *within* a field disappears:
+
+- **CodeableConcept and bare Coding** read the same, with `text` filled from `text`, then
+  `coding[0].display`, then `coding[0].code`. `Encounter.class` is a Coding in R4 and a
+  CodeableConcept in R5 — both land identically.
+- **References** are split: `{ reference: 'Patient/pat-1', resourceType: 'Patient', id: 'pat-1' }`.
+- **Repeating elements are always arrays**, even with one item, so `name[0]` is safe.
+- **Backbone elements keep their structure** — `Observation.component` stays a list of
+  `{ code, value }` with each `value` resolved.
+
+**Every value carries `text`.** A consumer that only wants to display something never switches on
+`kind` at all.
+
+Nothing is dropped quietly: elements a shape does not declare are listed in `unmapped`, so a
+coverage gap is visible rather than silent. Shapes are curated per resource type
+(`RESOURCE_SHAPE`); a resource type with no shape still gets its choice elements resolved.
+
+This layer is **additive and read-only** — it takes the canonical Bundle and returns a new
+structure, leaving `parse()` output untouched.
+
 ### Warnings, not exceptions
 
 Recoverable gaps never throw — they land in `meta.warnings` and the payload still comes back:
@@ -186,6 +238,9 @@ Registering an already-registered format replaces it, so you can also override a
 | `VERSION_MIGRATION`, `FHIR_VERSION` | The migration table and release tokens. |
 | `createDefaultNormalizer()` | A `Normalizer` with all built-in parsers registered. |
 | `fhirJsonParser`, `fhirXmlParser` | The built-in adapters. |
+| `simplifyBundle`, `simplifyResource` | The simplified view: choice types resolved, datatypes flattened. |
+| `resolveChoice` | Resolves one `value[x]`-style element on its own. |
+| `RESOURCE_SHAPE`, `VALUE_KIND` | The per-resource field specs and the value-kind tokens. |
 | `ParseResult` | `{ bundle, meta: { sourceFormat, parsedAt, warnings } }`. |
 | `FormatParser` | The adapter contract to implement for a new format. |
 | `FhirNormalizeError`, `UnsupportedFormatError`, `ParseError` | Error types. |
