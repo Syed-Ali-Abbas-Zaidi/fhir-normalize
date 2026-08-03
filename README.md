@@ -28,7 +28,7 @@ import type { Bundle, FhirResource } from 'fhir-normalize';
 
 ## Status
 
-`1.0.0`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform`, and the `Normalizer`
+`1.2.0`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform`, and the `Normalizer`
 methods — is stable under semver; anything breaking lands in a major.
 
 | Format | Status |
@@ -175,6 +175,76 @@ choice elements resolved — it just has no curated field ordering.
 This layer is **additive and read-only** — it takes the canonical Bundle and returns a new
 structure, leaving `parse()` output untouched.
 
+### See the shape before you write against it
+
+To model your own types around the output, you need to know what a resource's simplified structure
+looks like — without hunting for a payload that happens to exercise every field. `formatShape`
+prints it:
+
+```ts
+import { formatShape } from 'fhir-normalize';
+
+console.log(formatShape('Observation'));
+```
+
+```
+Observation
+
+  status                       primitive
+  category                     concept[]
+  code                         concept
+  subject                      reference
+  effective                    choice
+  value                        choice
+  component                    group[]
+    code                       concept
+    value                      choice
+
+value shapes
+  concept      { kind, text, code, system, display, codings }
+  quantity     { kind, text, value, unit, system, code, comparator }
+  reference    { kind, text, reference, resourceType, id, display }
+
+resolved at runtime
+  primitive    resolves to string, boolean, or number from the payload
+  choice       any kind above — read `kind` to tell which
+```
+
+The legend lists only the value shapes that resource actually uses, and its property names are
+read off the normalizers themselves — so the description cannot drift from what `simplifyResource`
+returns.
+
+For modelling, ask for an interface instead and paste it straight into your code:
+
+```ts
+formatShape('Observation', DESCRIBE_FORMAT.TYPESCRIPT);
+```
+
+```ts
+interface SimplifiedObservation {
+  resourceType: string;
+  id: string | null;
+  display: string;
+  unmapped: string[];
+  fields: {
+    code?: NormalizedConcept;
+    category?: NormalizedConcept[];
+    value?: NormalizedValue;
+    component?: {
+      code?: NormalizedConcept;
+      value?: NormalizedValue;
+    }[];
+  };
+}
+```
+
+Every member is optional because a field is omitted when the source resource does not carry it —
+the shape declares what *can* appear, not what must. The type names are the ones this package
+exports, so the interface compiles as-is.
+
+`describeShape` returns the same information as data if you want to generate something else from
+it, and `listShapes()` enumerates every resource type with a declared shape.
+
 ### Warnings, not exceptions
 
 Recoverable gaps never throw — they land in `meta.warnings` and the payload still comes back:
@@ -250,6 +320,8 @@ Registering an already-registered format replaces it, so you can also override a
 | `fhirJsonParser`, `fhirXmlParser` | The built-in adapters. |
 | `simplifyBundle`, `simplifyResource` | The simplified view: choice types resolved, datatypes flattened. |
 | `resolveChoice` | Resolves one `value[x]`-style element on its own. |
+| `formatShape`, `describeShape`, `listShapes` | The simplified structure of a resource type, printed or as data. |
+| `shapeFor`, `valueProperties` | Shape lookup with alias resolution, and a value kind's property names. |
 | `RESOURCE_SHAPE`, `VALUE_KIND` | The per-resource field specs and the value-kind tokens. |
 | `ParseResult` | `{ bundle, meta: { sourceFormat, parsedAt, warnings } }`. |
 | `FormatParser` | The adapter contract to implement for a new format. |

@@ -1,7 +1,8 @@
-import type { FIELD_KIND, VALUE_KIND } from './constants';
+import type { DESCRIBE_FORMAT, FIELD_KIND, VALUE_KIND } from './constants';
 
 export type ValueKind = (typeof VALUE_KIND)[keyof typeof VALUE_KIND];
 export type FieldKind = (typeof FIELD_KIND)[keyof typeof FIELD_KIND];
+export type DescribeFormat = (typeof DESCRIBE_FORMAT)[keyof typeof DESCRIBE_FORMAT];
 
 /** One entry from a CodeableConcept's `coding` array. */
 export interface NormalizedCoding {
@@ -165,6 +166,28 @@ export interface ResourceShape {
 export type SimplifiedFields = {
   [key: string]: NormalizedValue | NormalizedValue[] | SimplifiedFields[];
 };
+
+/** One field of a resource's simplified structure, described rather than filled. */
+export interface ShapeFieldDescription {
+  name: string;
+  kind: FieldKind;
+  /** `true` when the output is always an array. */
+  list: boolean;
+  /** Value kinds this field can hold. A `CHOICE` lists all of them. */
+  valueKinds: ValueKind[];
+  /** Property names on the normalized value, empty for groups and choices. */
+  properties: string[];
+  /** Nested fields, for a group. */
+  fields: ShapeFieldDescription[];
+}
+
+/** The simplified structure of a resource type, without needing a payload. */
+export interface ShapeDescription {
+  resourceType: string;
+  /** The type whose shape this reuses, or `null` when it has its own. */
+  aliasOf: string | null;
+  fields: ShapeFieldDescription[];
+}
 
 /** One resource, reduced to a predictable shape. */
 export interface SimplifiedResource {
