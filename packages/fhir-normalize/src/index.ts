@@ -54,9 +54,11 @@ export {
   DEID_ACTION,
   DEID_TRANSFORM_NAME,
   deIdentifyBundle,
+  FREE_TEXT_ELEMENT,
   FREE_TEXT_POLICY,
   REDACT_ELEMENT,
   surrogate,
+  surrogateReference,
 } from './deidentify';
 export { fhirJsonParser } from './parsers/fhir-json';
 export { fhirXmlParser } from './parsers/fhir-xml';

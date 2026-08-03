@@ -28,7 +28,7 @@ import type { Bundle, FhirResource } from 'fhir-normalize';
 
 ## Status
 
-`1.4.0`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform`, and the `Normalizer`
+`1.5.0`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform`, and the `Normalizer`
 methods — is stable under semver; anything breaking lands in a major.
 
 | Format | Status |
@@ -47,6 +47,29 @@ npm install fhir-normalize
 ```
 
 Ships ESM + CJS with generated type declarations. No runtime configuration required.
+
+### Import paths and bundle size
+
+The package has three entry points. The root re-exports everything, so a single import still works;
+the subpaths let a bundler leave out what you do not use.
+
+```ts
+import { createDefaultNormalizer } from 'fhir-normalize';              // parsing
+import { simplifyBundle, formatShape } from 'fhir-normalize/simplified';
+import { deIdentifyBundle } from 'fhir-normalize/deidentify';
+```
+
+The 74 resource shape tables are the bulk of the library, and they only ship if you import from
+`/simplified`. Measured on a real install, minified:
+
+| What you import | Library code |
+| --- | --- |
+| parsing only | ~15 KB |
+| parsing + the simplified view | ~48 KB |
+
+`fast-xml-parser` adds about 62 KB on top and is linked by any root import, because
+`createDefaultNormalizer` registers both parsers. There is no way to avoid it today short of not
+supporting XML.
 
 ## Usage
 
@@ -429,6 +452,8 @@ This repo is a pnpm workspace. The library lives in
 pnpm install
 pnpm verify      # build, lint, typecheck, test — the same gate CI runs
 ```
+
+Release history is in [CHANGELOG.md](CHANGELOG.md).
 
 Individually:
 

@@ -1,12 +1,19 @@
 'use client';
 
-import { MODE_OPTIONS, SAMPLES } from '@/constants';
+import { DEIDENTIFY_LABEL, MODE_OPTIONS, SAMPLES } from '@/constants';
 import styles from './input-panel.module.css';
 import type { InputPanelProps } from './types';
 
 const EDITOR_ID = 'playground-input';
 
-export const InputPanel = ({ input, onInputChange, mode, onModeChange }: InputPanelProps) => (
+export const InputPanel = ({
+  input,
+  onInputChange,
+  mode,
+  onModeChange,
+  deIdentify,
+  onDeIdentifyChange,
+}: InputPanelProps) => (
   <section className={styles.panel}>
     <div className={styles.header}>
       <label className={styles.eyebrow} htmlFor={EDITOR_ID}>
@@ -26,6 +33,18 @@ export const InputPanel = ({ input, onInputChange, mode, onModeChange }: InputPa
           </button>
         ))}
       </fieldset>
+    </div>
+
+    <div className={styles.toggleRow}>
+      <button
+        type="button"
+        className={styles.mode}
+        aria-pressed={deIdentify}
+        onClick={() => onDeIdentifyChange(!deIdentify)}
+        title="Strip names, contact details, narrative, and free text; reduce dates to a year"
+      >
+        {DEIDENTIFY_LABEL}
+      </button>
     </div>
 
     <textarea

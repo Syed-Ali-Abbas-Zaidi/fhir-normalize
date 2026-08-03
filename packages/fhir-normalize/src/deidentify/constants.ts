@@ -1,10 +1,20 @@
 import type { DeIdentifyOptions } from './types';
 
+/**
+ * What the pass decides to do with one element. Also the vocabulary the
+ * report is expressed in, so a caller can interpret it without guessing.
+ */
 export const DEID_ACTION = {
+  /** Remove the element. */
   REDACT: 'redact',
+  /** Replace with a stable surrogate. */
   PSEUDONYMIZE: 'pseudonymize',
+  /** Keep the year, drop the rest. */
   GENERALIZE_DATE: 'generalizeDate',
+  /** Leave untouched, because the caller asked for it. */
   KEEP: 'keep',
+  /** Not identifying in itself — descend and judge the children. */
+  RECURSE: 'recurse',
 } as const;
 
 export const DATE_POLICY = {

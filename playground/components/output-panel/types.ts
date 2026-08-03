@@ -5,6 +5,7 @@ export interface OutputPanelProps {
   result: PlaygroundResult;
   summaries: readonly ResourceSummary[];
   normalized: readonly SimplifiedResource[];
+  shapeText: string | null;
   warnings: readonly string[];
   tab: OutputTab;
   onTabChange: (tab: OutputTab) => void;

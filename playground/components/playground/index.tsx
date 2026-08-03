@@ -25,6 +25,9 @@ export const Playground = () => {
     result,
     summaries,
     normalized,
+    deIdentify,
+    setDeIdentify,
+    shapeText,
     warnings,
   } = usePlayground();
 
@@ -49,11 +52,19 @@ export const Playground = () => {
         />
 
         <div className={styles.panes}>
-          <InputPanel input={input} onInputChange={setInput} mode={mode} onModeChange={setMode} />
+          <InputPanel
+            input={input}
+            onInputChange={setInput}
+            mode={mode}
+            onModeChange={setMode}
+            deIdentify={deIdentify}
+            onDeIdentifyChange={setDeIdentify}
+          />
           <OutputPanel
             result={result}
             summaries={summaries}
             normalized={normalized}
+            shapeText={shapeText}
             warnings={warnings}
             tab={tab}
             onTabChange={setTab}
