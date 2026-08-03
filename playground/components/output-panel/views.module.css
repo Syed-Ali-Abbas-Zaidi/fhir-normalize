@@ -195,3 +195,77 @@
   margin-top: 6px;
   line-height: 1.55;
 }
+
+/* Shape browser ---------------------------------------------------------- */
+
+.shape {
+  display: flex;
+  flex-direction: column;
+}
+
+.shapeBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--console-border);
+  position: sticky;
+  top: 0;
+  background: var(--console);
+  z-index: 1;
+}
+
+.shapeLabel {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--console-dim);
+}
+
+.shapeSelect {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  padding: 4px 8px;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--console-border);
+  background: var(--console-card);
+  color: var(--console-ink);
+  max-width: 240px;
+}
+
+.shapeFormats {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.shapeFormat {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 4px 9px;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--console-border);
+  background: transparent;
+  color: var(--console-faint);
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.shapeFormat:hover {
+  color: var(--console-soft);
+}
+
+.shapeFormat[aria-pressed="true"] {
+  border-color: var(--brand);
+  color: var(--console-ink);
+}
+
+.shapeCount {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--console-dim);
+  white-space: nowrap;
+}

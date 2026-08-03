@@ -1,5 +1,5 @@
 import { SOURCE_FORMAT } from 'fhir-normalize';
-import type { ModeOption, SampleConfig, TabConfig } from '@/types';
+import type { ModeOption, SampleConfig, ShapeFormat, TabConfig } from '@/types';
 
 /**
  * Parse modes offered by the toggle. The two explicit modes are the library's
@@ -81,8 +81,30 @@ export const COPY_RESET_MS = 1400;
 /** Label for the de-identification toggle. */
 export const DEIDENTIFY_LABEL = 'de-identify';
 
-/** Shown in the Shape tab when the bundle holds nothing to describe. */
-export const NO_SHAPE_TEXT = 'Parse a resource to see the simplified structure its type produces.';
+/** Shown in the Shape tab when a resource type has no declared shape. */
+export const NO_SHAPE_TEXT =
+  'This resource type has no declared shape. Its choice elements are still resolved, but its fields have no curated ordering.';
+
+/** Sections of the FHIR resource list, used to group the shape picker. */
+export const SHAPE_SECTION = {
+  BASE: 'Base',
+  CLINICAL: 'Clinical',
+  FOUNDATION: 'Foundation',
+} as const;
+
+/** Rendering formats offered in the Shape tab. */
+export const SHAPE_FORMAT = {
+  TREE: 'tree',
+  TYPESCRIPT: 'typescript',
+} as const;
+
+export const SHAPE_FORMAT_OPTIONS: readonly { value: ShapeFormat; label: string }[] = [
+  { value: SHAPE_FORMAT.TREE, label: 'outline' },
+  { value: SHAPE_FORMAT.TYPESCRIPT, label: 'typescript' },
+];
+
+/** Where the Shape tab starts before anything has been parsed. */
+export const DEFAULT_SHAPE_TYPE = 'Observation';
 
 const patientPayload = JSON.stringify(
   {

@@ -19,6 +19,10 @@ export const OutputPanel = ({
   summaries,
   normalized,
   shapeText,
+  shapeResourceType,
+  onShapeResourceTypeChange,
+  shapeFormat,
+  onShapeFormatChange,
   warnings,
   tab,
   onTabChange,
@@ -31,7 +35,15 @@ export const OutputPanel = ({
   const tabContent: Record<OutputTab, ReactNode> = {
     [OUTPUT_TAB.STANDARD]: parsed ? <StandardView bundle={result.bundle} /> : null,
     [OUTPUT_TAB.NORMALIZED]: <NormalizedView resources={normalized} />,
-    [OUTPUT_TAB.SHAPE]: <ShapeView text={shapeText} />,
+    [OUTPUT_TAB.SHAPE]: (
+      <ShapeView
+        text={shapeText}
+        resourceType={shapeResourceType}
+        onResourceTypeChange={onShapeResourceTypeChange}
+        format={shapeFormat}
+        onFormatChange={onShapeFormatChange}
+      />
+    ),
     [OUTPUT_TAB.EXTRACTED]: <ExtractedView summaries={summaries} />,
     [OUTPUT_TAB.WARNINGS]: <WarningsView warnings={warnings} />,
   };

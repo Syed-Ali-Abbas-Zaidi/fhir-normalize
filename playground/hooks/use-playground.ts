@@ -2,9 +2,16 @@
 
 import { simplifyBundle } from 'fhir-normalize';
 import { useMemo, useState } from 'react';
-import { defaultSample, OUTPUT_TAB, PARSE_MODE, RESULT_STATE } from '@/constants';
-import type { OutputTab, ParseMode, PlaygroundState } from '@/types';
-import { describeResourceShape, detectFormat, parseForDisplay, summarize } from '@/utils';
+import {
+  DEFAULT_SHAPE_TYPE,
+  defaultSample,
+  OUTPUT_TAB,
+  PARSE_MODE,
+  RESULT_STATE,
+  SHAPE_FORMAT,
+} from '@/constants';
+import type { OutputTab, ParseMode, PlaygroundState, ShapeFormat } from '@/types';
+import { detectFormat, hasShape, parseForDisplay, renderShape, summarize } from '@/utils';
 
 /**
  * Owns the page's state and nothing else — every derived value is computed
@@ -15,6 +22,10 @@ export const usePlayground = (): PlaygroundState => {
   const [mode, setMode] = useState<ParseMode>(PARSE_MODE.AUTO);
   const [tab, setTab] = useState<OutputTab>(OUTPUT_TAB.STANDARD);
   const [deIdentify, setDeIdentify] = useState(false);
+  // `null` means "follow whatever was parsed". A concrete value means the user
+  // chose a type, and their choice outlives the next parse.
+  const [pickedShape, setPickedShape] = useState<string | null>(null);
+  const [shapeFormat, setShapeFormat] = useState<ShapeFormat>(SHAPE_FORMAT.TREE);
 
   const detectedFormat = useMemo(() => detectFormat(input), [input]);
   const result = useMemo(() => parseForDisplay(input, mode, deIdentify), [input, mode, deIdentify]);
@@ -37,9 +48,14 @@ export const usePlayground = (): PlaygroundState => {
     [result],
   );
 
+  // Derived, not synced: following the parsed resource until the user picks a
+  // type is a computation, and an effect writing state back would loop.
+  const parsedType = normalized.find((resource) => hasShape(resource.resourceType))?.resourceType;
+  const shapeResourceType = pickedShape ?? parsedType ?? DEFAULT_SHAPE_TYPE;
+
   const shapeText = useMemo(
-    () => describeResourceShape(normalized.map((resource) => resource.resourceType)),
-    [normalized],
+    () => renderShape(shapeResourceType, shapeFormat),
+    [shapeResourceType, shapeFormat],
   );
 
   const warnings = result.state === RESULT_STATE.OK ? result.meta.warnings : [];
@@ -57,6 +73,10 @@ export const usePlayground = (): PlaygroundState => {
     normalized,
     deIdentify,
     setDeIdentify,
+    shapeResourceType,
+    setShapeResourceType: setPickedShape,
+    shapeFormat,
+    setShapeFormat,
     shapeText,
     warnings,
   };
