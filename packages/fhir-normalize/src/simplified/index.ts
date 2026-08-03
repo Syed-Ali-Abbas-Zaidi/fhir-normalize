@@ -1,5 +1,6 @@
 export { normalizeByKind, resolveChoice } from './choice';
-export { FIELD_KIND, VALUE_KIND } from './constants';
+export { DESCRIBE_FORMAT, FIELD_KIND, VALUE_KIND } from './constants';
+export { describeShape, formatShape, listShapes, valueProperties } from './describe';
 export {
   ADMINISTRATIVE_SHAPE,
   CLINICAL_ALIAS,
@@ -9,6 +10,7 @@ export {
   shapeFor,
 } from './shapes';
 export type {
+  DescribeFormat,
   FieldKind,
   FieldSpec,
   NormalizedAddress,
@@ -29,6 +31,8 @@ export type {
   NormalizedUnknown,
   NormalizedValue,
   ResourceShape,
+  ShapeDescription,
+  ShapeFieldDescription,
   SimplifiedFields,
   SimplifiedResource,
   ValueKind,

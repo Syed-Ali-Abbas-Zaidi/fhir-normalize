@@ -89,6 +89,38 @@ export const TYPE_SUFFIX_KIND: Readonly<Record<string, ValueKind>> = {
   Time: VALUE_KIND.DATE_TIME,
 };
 
+/** Output formats for {@link formatShape}. */
+export const DESCRIBE_FORMAT = {
+  /** A readable outline, with a legend of the value shapes used. */
+  TREE: 'tree',
+  /** A copy-pasteable interface, for modelling against the output. */
+  TYPESCRIPT: 'typescript',
+} as const;
+
+/**
+ * The exported type name for each value kind, so a rendered interface
+ * references types a consumer can actually import.
+ */
+export const VALUE_TYPE_NAME = 'NormalizedValue';
+
+export const TYPE_NAME: Readonly<Record<string, string>> = {
+  [VALUE_KIND.CONCEPT]: 'NormalizedConcept',
+  [VALUE_KIND.QUANTITY]: 'NormalizedQuantity',
+  [VALUE_KIND.RATIO]: 'NormalizedRatio',
+  [VALUE_KIND.RANGE]: 'NormalizedRange',
+  [VALUE_KIND.REFERENCE]: 'NormalizedReference',
+  [VALUE_KIND.PERIOD]: 'NormalizedPeriod',
+  [VALUE_KIND.NAME]: 'NormalizedName',
+  [VALUE_KIND.CONTACT]: 'NormalizedContactPoint',
+  [VALUE_KIND.ADDRESS]: 'NormalizedAddress',
+  [VALUE_KIND.IDENTIFIER]: 'NormalizedIdentifier',
+  [VALUE_KIND.STRING]: 'NormalizedString',
+  [VALUE_KIND.BOOLEAN]: 'NormalizedBoolean',
+  [VALUE_KIND.NUMBER]: 'NormalizedNumber',
+  [VALUE_KIND.DATE_TIME]: 'NormalizedDateTime',
+  [VALUE_KIND.UNKNOWN]: 'NormalizedUnknown',
+};
+
 /** Rendered when a value carries no displayable text at all. */
 export const EMPTY_TEXT = '—';
 

@@ -40,6 +40,7 @@ export {
 export { fhirJsonParser } from './parsers/fhir-json';
 export { fhirXmlParser } from './parsers/fhir-xml';
 export type {
+  DescribeFormat,
   FieldKind,
   FieldSpec,
   NormalizedAddress,
@@ -60,18 +61,26 @@ export type {
   NormalizedUnknown,
   NormalizedValue,
   ResourceShape,
+  ShapeDescription,
+  ShapeFieldDescription,
   SimplifiedFields,
   SimplifiedResource,
   ValueKind,
 } from './simplified';
 export {
+  DESCRIBE_FORMAT,
+  describeShape,
   FIELD_KIND,
+  formatShape,
+  listShapes,
   normalizeByKind,
   RESOURCE_SHAPE,
   resolveChoice,
+  shapeFor,
   simplifyBundle,
   simplifyResource,
   VALUE_KIND,
+  valueProperties,
 } from './simplified';
 export type { FhirVersion, FieldMigration, MigrationTable } from './version';
 export {
