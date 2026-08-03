@@ -25,6 +25,7 @@ export type {
   BundleType,
   CreateParseResultInput,
   FormatParser,
+  NormalizerOptions,
   ParseMeta,
   ParseResult,
   ResultTransform,
