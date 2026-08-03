@@ -4,6 +4,7 @@ import {
   DATE_PATTERN,
   DATE_POLICY,
   DEFAULT_OPTIONS,
+  DEID_ACTION,
   FREE_TEXT_ELEMENT,
   FREE_TEXT_POLICY,
   NEVER_REDACT_ELEMENT,
@@ -79,12 +80,15 @@ const count = (tally: Tally, field: keyof Omit<Tally, 'elements'>, element: stri
   tally.elements.add(element);
 };
 
-/** What to do with one element, decided before anything is written. */
+/**
+ * What to do with one element, decided before anything is written.
+ * Discriminated by {@link DEID_ACTION}, the same vocabulary the report uses.
+ */
 type Decision =
-  | { kind: 'verbatim' }
-  | { kind: 'drop'; label: string }
-  | { kind: 'surrogate'; value: string; label: string }
-  | { kind: 'recurse' };
+  | { action: typeof DEID_ACTION.KEEP }
+  | { action: typeof DEID_ACTION.REDACT; label: string }
+  | { action: typeof DEID_ACTION.PSEUDONYMIZE; value: string; label: string }
+  | { action: typeof DEID_ACTION.RECURSE };
 
 /** Whether the record this element sits on is a Reference or an Identifier. */
 interface Context {
@@ -103,46 +107,51 @@ const decideContextual = (
   context: Context,
   salt: string,
 ): Decision | null => {
-  if (typeof value !== 'string') {
-    return context.reference && key === 'display'
-      ? { kind: 'drop', label: 'Reference.display' }
-      : null;
+  if (context.reference && key === 'display') {
+    return { action: DEID_ACTION.REDACT, label: 'Reference.display' };
   }
 
-  if (context.reference && key === 'display') return { kind: 'drop', label: 'Reference.display' };
+  if (typeof value !== 'string') return null;
+
   if (context.reference && key === 'reference') {
     return {
-      kind: 'surrogate',
+      action: DEID_ACTION.PSEUDONYMIZE,
       value: surrogateReference(value, salt),
       label: 'Reference.reference',
     };
   }
   if (context.identifier && key === 'value') {
-    return { kind: 'surrogate', value: surrogate(value, salt), label: 'Identifier.value' };
+    return {
+      action: DEID_ACTION.PSEUDONYMIZE,
+      value: surrogate(value, salt),
+      label: 'Identifier.value',
+    };
   }
   if (key === 'fullUrl') {
-    return { kind: 'surrogate', value: surrogateReference(value, salt), label: key };
+    return { action: DEID_ACTION.PSEUDONYMIZE, value: surrogateReference(value, salt), label: key };
   }
-  if (key === 'id') return { kind: 'surrogate', value: surrogate(value, salt), label: key };
+  if (key === 'id') {
+    return { action: DEID_ACTION.PSEUDONYMIZE, value: surrogate(value, salt), label: key };
+  }
 
   return null;
 };
 
 const decide = (key: string, value: unknown, context: Context, settings: Settings): Decision => {
-  if (settings.keep.has(key)) return { kind: 'verbatim' };
+  if (settings.keep.has(key)) return { action: DEID_ACTION.KEEP };
 
   const contextual = decideContextual(key, value, context, settings.salt);
   if (contextual !== null) return contextual;
 
   if (!NEVER_REDACT_ELEMENT.has(key) && REDACT_ELEMENT.has(key)) {
-    return { kind: 'drop', label: key };
+    return { action: DEID_ACTION.REDACT, label: key };
   }
 
   if (FREE_TEXT_ELEMENT.has(key) && settings.freeText === FREE_TEXT_POLICY.REDACT) {
-    return { kind: 'drop', label: key };
+    return { action: DEID_ACTION.REDACT, label: key };
   }
 
-  return { kind: 'recurse' };
+  return { action: DEID_ACTION.RECURSE };
 };
 
 const scrubRecord = (record: UnknownRecord, settings: Settings, tally: Tally): UnknownRecord => {
@@ -152,17 +161,17 @@ const scrubRecord = (record: UnknownRecord, settings: Settings, tally: Tally): U
   for (const [key, value] of Object.entries(record)) {
     const decision = decide(key, value, context, settings);
 
-    if (decision.kind === 'verbatim') {
+    if (decision.action === DEID_ACTION.KEEP) {
       result[key] = value;
       continue;
     }
 
-    if (decision.kind === 'drop') {
+    if (decision.action === DEID_ACTION.REDACT) {
       count(tally, 'redacted', decision.label);
       continue;
     }
 
-    if (decision.kind === 'surrogate') {
+    if (decision.action === DEID_ACTION.PSEUDONYMIZE) {
       // With pseudonymisation off the element goes entirely, which usually
       // breaks the graph — that is the caller's explicit choice.
       if (settings.pseudonymizeIds) {

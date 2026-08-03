@@ -5,4 +5,6 @@ export interface InputPanelProps {
   onInputChange: (value: string) => void;
   mode: ParseMode;
   onModeChange: (mode: ParseMode) => void;
+  deIdentify: boolean;
+  onDeIdentifyChange: (value: boolean) => void;
 }

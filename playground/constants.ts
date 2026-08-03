@@ -14,6 +14,7 @@ export const PARSE_MODE = {
 export const OUTPUT_TAB = {
   STANDARD: 'standard',
   NORMALIZED: 'normalized',
+  SHAPE: 'shape',
   EXTRACTED: 'extracted',
   WARNINGS: 'warnings',
 } as const;
@@ -61,6 +62,7 @@ export const MODE_OPTIONS: readonly ModeOption[] = [
 export const TAB_OPTIONS: readonly TabConfig[] = [
   { value: OUTPUT_TAB.STANDARD, label: 'Standard shape' },
   { value: OUTPUT_TAB.NORMALIZED, label: 'Normalized' },
+  { value: OUTPUT_TAB.SHAPE, label: 'Shape' },
   { value: OUTPUT_TAB.EXTRACTED, label: 'Extracted' },
   { value: OUTPUT_TAB.WARNINGS, label: 'Warnings' },
 ];
@@ -75,6 +77,12 @@ export const FORMAT_LABEL: Readonly<Record<string, string>> = {
 export const NO_FORMAT_BADGE = '—';
 
 export const COPY_RESET_MS = 1400;
+
+/** Label for the de-identification toggle. */
+export const DEIDENTIFY_LABEL = 'de-identify';
+
+/** Shown in the Shape tab when the bundle holds nothing to describe. */
+export const NO_SHAPE_TEXT = 'Parse a resource to see the simplified structure its type produces.';
 
 const patientPayload = JSON.stringify(
   {

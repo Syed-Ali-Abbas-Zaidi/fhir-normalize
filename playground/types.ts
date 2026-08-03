@@ -66,5 +66,10 @@ export interface PlaygroundState {
   summaries: ResourceSummary[];
   /** The simplified view — choice types resolved, datatypes flattened. */
   normalized: SimplifiedResource[];
+  /** Whether direct identifiers are stripped before display. */
+  deIdentify: boolean;
+  setDeIdentify: (value: boolean) => void;
+  /** The simplified structure of the first parsed resource type, rendered. */
+  shapeText: string | null;
   warnings: string[];
 }

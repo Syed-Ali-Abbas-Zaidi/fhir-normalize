@@ -128,3 +128,11 @@
   color: var(--soft);
   margin-left: auto;
 }
+
+/* Sits between the editor and the samples, so the toggle reads as an input
+   setting rather than an output view. */
+.toggleRow {
+  display: flex;
+  gap: 6px;
+  padding: 10px 16px 0;
+}

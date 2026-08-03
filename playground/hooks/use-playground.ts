@@ -4,7 +4,7 @@ import { simplifyBundle } from 'fhir-normalize';
 import { useMemo, useState } from 'react';
 import { defaultSample, OUTPUT_TAB, PARSE_MODE, RESULT_STATE } from '@/constants';
 import type { OutputTab, ParseMode, PlaygroundState } from '@/types';
-import { detectFormat, parseForDisplay, summarize } from '@/utils';
+import { describeResourceShape, detectFormat, parseForDisplay, summarize } from '@/utils';
 
 /**
  * Owns the page's state and nothing else — every derived value is computed
@@ -14,9 +14,10 @@ export const usePlayground = (): PlaygroundState => {
   const [input, setInput] = useState<string>(defaultSample?.payload ?? '');
   const [mode, setMode] = useState<ParseMode>(PARSE_MODE.AUTO);
   const [tab, setTab] = useState<OutputTab>(OUTPUT_TAB.STANDARD);
+  const [deIdentify, setDeIdentify] = useState(false);
 
   const detectedFormat = useMemo(() => detectFormat(input), [input]);
-  const result = useMemo(() => parseForDisplay(input, mode), [input, mode]);
+  const result = useMemo(() => parseForDisplay(input, mode, deIdentify), [input, mode, deIdentify]);
 
   const resources = useMemo(
     () =>
@@ -36,6 +37,11 @@ export const usePlayground = (): PlaygroundState => {
     [result],
   );
 
+  const shapeText = useMemo(
+    () => describeResourceShape(normalized.map((resource) => resource.resourceType)),
+    [normalized],
+  );
+
   const warnings = result.state === RESULT_STATE.OK ? result.meta.warnings : [];
 
   return {
@@ -49,6 +55,9 @@ export const usePlayground = (): PlaygroundState => {
     result,
     summaries,
     normalized,
+    deIdentify,
+    setDeIdentify,
+    shapeText,
     warnings,
   };
 };

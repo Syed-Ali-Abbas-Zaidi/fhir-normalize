@@ -9,6 +9,12 @@ import type { ParseMode, PlaygroundResult } from '@/types';
  */
 const normalizer = createDefaultNormalizer();
 
+/**
+ * A second registry with the de-identification stage. Two instances rather
+ * than one rebuilt per keystroke: a Normalizer is a registry, not state.
+ */
+const deIdentifying = createDefaultNormalizer({ deIdentify: true });
+
 /** Which format the library would pick, or `null` if it cannot tell. */
 export const detectFormat = (input: string): SourceFormat | null => {
   const trimmed = input.trim();
@@ -24,13 +30,18 @@ export const registeredStages = (): string[] => normalizer.stages;
  * Parse for display. Errors become a result state rather than an exception,
  * because a half-typed payload is the normal case while someone is editing.
  */
-export const parseForDisplay = (input: string, mode: ParseMode): PlaygroundResult => {
+export const parseForDisplay = (
+  input: string,
+  mode: ParseMode,
+  deIdentify = false,
+): PlaygroundResult => {
   const trimmed = input.trim();
   if (trimmed === '') return { state: RESULT_STATE.EMPTY };
 
   try {
     const format = mode === PARSE_MODE.AUTO ? undefined : mode;
-    return { state: RESULT_STATE.OK, ...normalizer.parse(trimmed, format) };
+    const registry = deIdentify ? deIdentifying : normalizer;
+    return { state: RESULT_STATE.OK, ...registry.parse(trimmed, format) };
   } catch (error) {
     return {
       state: RESULT_STATE.ERROR,

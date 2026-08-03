@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { FIELD_KIND } from './constants';
+import { listShapes } from './describe';
 import { CLINICAL_SHAPE, shapeFor } from './shapes';
+import type { FieldSpec } from './types';
+import { simplifyResource } from './utils';
 
 /**
  * The Clinical section of the FHIR resource list, transcribed from
@@ -133,6 +137,85 @@ describe('Clinical section coverage', () => {
     const missing = listed.filter((resourceType) => shapeFor(resourceType) === undefined);
 
     expect(missing).toEqual([]);
+  });
+});
+
+describe('every declared shape survives real input', () => {
+  /**
+   * Builds a resource that exercises the shape: one plausible value per
+   * declared field, shaped to match the field kind.
+   */
+  const sampleFor = (resourceType: string): Record<string, unknown> => {
+    const shape = shapeFor(resourceType);
+    const resource: Record<string, unknown> = { resourceType, id: 'sample-1' };
+
+    for (const [name, spec] of Object.entries(shape?.fields ?? {})) {
+      const value = sampleValue(spec);
+      if (value !== undefined) resource[name] = spec.list === true ? [value] : value;
+    }
+
+    return resource;
+  };
+
+  const sampleValue = (spec: FieldSpec): unknown => {
+    const byKind: Partial<Record<string, unknown>> = {
+      [FIELD_KIND.CONCEPT]: { text: 'Sample', coding: [{ code: 'S', display: 'Sample' }] },
+      [FIELD_KIND.REFERENCE]: { reference: 'Patient/p1', display: 'Sample' },
+      [FIELD_KIND.QUANTITY]: { value: 1, unit: 'mg' },
+      [FIELD_KIND.RATIO]: { numerator: { value: 1, unit: 'mg' }, denominator: { value: 1 } },
+      [FIELD_KIND.RANGE]: { low: { value: 1 }, high: { value: 2 } },
+      [FIELD_KIND.PERIOD]: { start: '2026-01-01', end: '2026-12-31' },
+      [FIELD_KIND.NAME]: { family: 'Sample', given: ['A'] },
+      [FIELD_KIND.CONTACT]: { system: 'phone', value: '123' },
+      [FIELD_KIND.ADDRESS]: { line: ['1 Road'], city: 'Town' },
+      [FIELD_KIND.IDENTIFIER]: { system: 'http://x', value: 'ID-1' },
+      [FIELD_KIND.ANNOTATION]: { text: 'A note' },
+      [FIELD_KIND.PRIMITIVE]: 'sample',
+      [FIELD_KIND.CHOICE]: undefined,
+    };
+
+    if (spec.kind === FIELD_KIND.GROUP) {
+      const nested: Record<string, unknown> = {};
+      for (const [name, child] of Object.entries(spec.fields ?? {})) {
+        const value = sampleValue(child);
+        if (value !== undefined) nested[name] = child.list === true ? [value] : value;
+      }
+      return nested;
+    }
+
+    return byKind[spec.kind];
+  };
+
+  it.each(listShapes())('%s simplifies without throwing, and builds a display', (resourceType) => {
+    const simplified = simplifyResource(sampleFor(resourceType));
+
+    expect(simplified.resourceType).toBe(resourceType);
+    expect(typeof simplified.display).toBe('string');
+    expect(simplified.display.length).toBeGreaterThan(0);
+  });
+
+  it.each(listShapes())('%s handles a resource carrying nothing but its type', (resourceType) => {
+    const simplified = simplifyResource({ resourceType });
+
+    // With no fields at all the label falls back to the resource type.
+    expect(simplified.display).toBe(resourceType);
+    expect(simplified.unmapped).toEqual([]);
+  });
+
+  it.each(listShapes())('%s resolves its choice elements when present', (resourceType) => {
+    const shape = shapeFor(resourceType);
+    const choices = Object.entries(shape?.fields ?? {})
+      .filter(([, spec]) => spec.kind === FIELD_KIND.CHOICE)
+      .map(([name]) => name);
+
+    const resource: Record<string, unknown> = { resourceType };
+    for (const name of choices) resource[`${name}String`] = 'sample';
+
+    const { fields } = simplifyResource(resource);
+
+    for (const name of choices) {
+      expect(Object.keys(fields), `${resourceType}.${name}`).toContain(name);
+    }
   });
 });
 
