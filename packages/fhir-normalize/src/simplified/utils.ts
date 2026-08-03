@@ -107,8 +107,12 @@ const readFields = (
  *
  * Choice elements collapse onto their base name, so `valueQuantity`,
  * `valueString`, and `valueCodeableConcept` all arrive as `value` carrying a
- * `kind` discriminant and a `text` rendering. Nothing is dropped silently:
- * elements the shape does not declare are listed in `unmapped`.
+ * `kind` discriminant and a `text` rendering.
+ *
+ * Nothing is dropped. Elements the shape does not declare are still read, with
+ * a generic reading rather than a curated one, and their names are reported in
+ * `unmapped` — so an incomplete shape costs fidelity of *interpretation*, never
+ * the data itself.
  */
 export const simplifyResource = (resource: unknown): SimplifiedResource => {
   const record = isRecord(resource) ? resource : {};
@@ -119,19 +123,16 @@ export const simplifyResource = (resource: unknown): SimplifiedResource => {
     ? readFields(record, shape.fields)
     : { fields: {} as SimplifiedFields, consumed: new Set<string>() };
 
-  // With no declared shape, still resolve whatever looks like a choice so the
-  // hardest part of FHIR is handled even for unmodelled resource types.
-  if (!shape) {
-    for (const key of Object.keys(record)) {
-      if (COMMON_ELEMENT.has(key)) continue;
-      fields[key] = toPrimitive(record[key]);
-      consumed.add(key);
-    }
-  }
+  // Anything the shape did not claim is still read generically. With no shape
+  // at all there is nothing to be unmapped *from*, so only a declared shape
+  // reports gaps.
+  const unmapped: string[] = [];
+  for (const key of Object.keys(record)) {
+    if (consumed.has(key) || COMMON_ELEMENT.has(key)) continue;
 
-  const unmapped = Object.keys(record).filter(
-    (key) => !consumed.has(key) && !COMMON_ELEMENT.has(key),
-  );
+    fields[key] = toPrimitive(record[key]);
+    if (shape) unmapped.push(key);
+  }
 
   const id = str(record.id);
   const label = shape?.display?.(fields) ?? null;

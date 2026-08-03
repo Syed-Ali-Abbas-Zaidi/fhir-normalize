@@ -71,6 +71,52 @@ const R4_ONLY = [
   'SupplyDelivery',
 ] as const;
 
+/**
+ * The Base section, transcribed from the same page on 2026-08-03.
+ */
+const BASE_SECTION = {
+  Individuals: ['Patient', 'Practitioner', 'PractitionerRole', 'RelatedPerson', 'Person', 'Group'],
+  'Entities #1': [
+    'Organization',
+    'OrganizationAffiliation',
+    'HealthcareService',
+    'Endpoint',
+    'Location',
+  ],
+  'Entities #2': [
+    'Substance',
+    'BiologicallyDerivedProduct',
+    'Device',
+    'DeviceAlert',
+    'DeviceMetric',
+    'NutritionProduct',
+  ],
+  Workflow: ['Task', 'Appointment', 'AppointmentResponse', 'Schedule', 'Slot'],
+  Management: ['Encounter', 'EpisodeOfCare', 'Flag', 'List', 'Library'],
+} as const;
+
+/** R4 member of the Base section that the current build renamed or dropped. */
+const BASE_R4_ONLY = ['DeviceDefinition'] as const;
+
+describe('Base section coverage', () => {
+  for (const [section, resources] of Object.entries(BASE_SECTION)) {
+    it.each(resources)(`${section}: %s has a shape`, (resourceType) => {
+      expect(shapeFor(resourceType)).toBeDefined();
+    });
+  }
+
+  it.each(BASE_R4_ONLY)('R4-only: %s has a shape', (resourceType) => {
+    expect(shapeFor(resourceType)).toBeDefined();
+  });
+
+  it('covers every listed resource with no gaps', () => {
+    const listed = [...Object.values(BASE_SECTION).flat(), ...BASE_R4_ONLY];
+    const missing = listed.filter((resourceType) => shapeFor(resourceType) === undefined);
+
+    expect(missing).toEqual([]);
+  });
+});
+
 describe('Clinical section coverage', () => {
   for (const [section, resources] of Object.entries(CLINICAL_SECTION)) {
     it.each(resources)(`${section}: %s has a shape`, (resourceType) => {
