@@ -2,10 +2,11 @@ export { normalizeByKind, resolveChoice } from './choice';
 export { DESCRIBE_FORMAT, FIELD_KIND, VALUE_KIND } from './constants';
 export { describeShape, formatShape, listShapes, valueProperties } from './describe';
 export {
-  ADMINISTRATIVE_SHAPE,
+  BASE_SHAPE,
   CLINICAL_ALIAS,
   CLINICAL_SHAPE,
   COMMON_ELEMENT,
+  FOUNDATION_SHAPE,
   RESOURCE_SHAPE,
   shapeFor,
 } from './shapes';
