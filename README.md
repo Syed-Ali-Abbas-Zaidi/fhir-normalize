@@ -44,9 +44,23 @@ methods — is stable under semver; anything breaking lands in a major.
 
 ```bash
 npm install fhir-normalize
+yarn add fhir-normalize
+pnpm add fhir-normalize
+bun add fhir-normalize
 ```
 
+All four install the same package from npm — there is no separate registry per package manager.
+Each of these was verified against the published release, including the subpath entry points under
+Yarn's Plug'n'Play and pnpm's isolated `node_modules`, which are the strictest resolvers of the set.
+
 Ships ESM + CJS with generated type declarations. No runtime configuration required.
+
+> [!NOTE]
+> **pnpm may install an older version than you expect.** pnpm 11 holds back very recent releases by
+> default (`minimumReleaseAge`) as a supply-chain precaution, so `pnpm add fhir-normalize` shortly
+> after a release can resolve to the previous one. Ask for the version explicitly —
+> `pnpm add fhir-normalize@latest` — if you need it immediately. This is pnpm's policy, not
+> something this package controls.
 
 ### Import paths and bundle size
 
