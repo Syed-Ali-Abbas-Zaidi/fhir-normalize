@@ -27,6 +27,10 @@ export const Playground = () => {
     normalized,
     deIdentify,
     setDeIdentify,
+    shapeResourceType,
+    setShapeResourceType,
+    shapeFormat,
+    setShapeFormat,
     shapeText,
     warnings,
   } = usePlayground();
@@ -65,6 +69,10 @@ export const Playground = () => {
             summaries={summaries}
             normalized={normalized}
             shapeText={shapeText}
+            shapeResourceType={shapeResourceType}
+            onShapeResourceTypeChange={setShapeResourceType}
+            shapeFormat={shapeFormat}
+            onShapeFormatChange={setShapeFormat}
             warnings={warnings}
             tab={tab}
             onTabChange={setTab}

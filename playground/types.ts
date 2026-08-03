@@ -1,9 +1,16 @@
 import type { ParseResult, SimplifiedResource, SourceFormat } from 'fhir-normalize';
-import type { JSON_TOKEN, OUTPUT_TAB, PARSE_MODE, RESULT_STATE } from '@/constants';
+import type { JSON_TOKEN, OUTPUT_TAB, PARSE_MODE, RESULT_STATE, SHAPE_FORMAT } from '@/constants';
 
 export type ParseMode = (typeof PARSE_MODE)[keyof typeof PARSE_MODE];
 export type OutputTab = (typeof OUTPUT_TAB)[keyof typeof OUTPUT_TAB];
 export type JsonTokenKind = (typeof JSON_TOKEN)[keyof typeof JSON_TOKEN];
+export type ShapeFormat = (typeof SHAPE_FORMAT)[keyof typeof SHAPE_FORMAT];
+
+/** One section of the resource list, for the shape picker. */
+export interface ShapeGroup {
+  label: string;
+  resourceTypes: string[];
+}
 
 /** A plain object of unknown shape — what parsed resources look like here. */
 export type UnknownRecord = Record<string, unknown>;
@@ -69,7 +76,12 @@ export interface PlaygroundState {
   /** Whether direct identifiers are stripped before display. */
   deIdentify: boolean;
   setDeIdentify: (value: boolean) => void;
-  /** The simplified structure of the first parsed resource type, rendered. */
+  /** The resource type the Shape tab is describing. */
+  shapeResourceType: string;
+  setShapeResourceType: (resourceType: string) => void;
+  shapeFormat: ShapeFormat;
+  setShapeFormat: (format: ShapeFormat) => void;
+  /** The rendered structure for `shapeResourceType`. */
   shapeText: string | null;
   warnings: string[];
 }
