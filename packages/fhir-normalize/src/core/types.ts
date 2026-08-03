@@ -56,6 +56,15 @@ export interface ResultTransform {
   transform(result: ParseResult): ParseResult;
 }
 
+/** Options for the batteries-included {@link createDefaultNormalizer} factory. */
+export interface NormalizerOptions {
+  /**
+   * Add the de-identification stage. `true` uses the defaults; an options
+   * object tunes them.
+   */
+  deIdentify?: boolean | import('../deidentify').DeIdentifyOptions;
+}
+
 /** Accumulates non-fatal warnings while a parser runs. */
 export interface WarningLog {
   add(message: string): void;

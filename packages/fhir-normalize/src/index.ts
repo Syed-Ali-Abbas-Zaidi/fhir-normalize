@@ -4,7 +4,9 @@
  */
 export type { Bundle, BundleEntry, FhirResource } from 'fhir/r4';
 
+import type { NormalizerOptions } from './core';
 import { Normalizer } from './core';
+import { createDeIdentifyTransform } from './deidentify';
 import { fhirJsonParser } from './parsers/fhir-json';
 import { fhirXmlParser } from './parsers/fhir-xml';
 import { r4VersionTransform } from './version';
@@ -13,6 +15,7 @@ export type {
   BundleType,
   CreateParseResultInput,
   FormatParser,
+  NormalizerOptions,
   ParseMeta,
   ParseResult,
   ResultTransform,
@@ -37,6 +40,24 @@ export {
   SOURCE_FORMAT,
   UnsupportedFormatError,
 } from './core';
+export type {
+  DatePolicy,
+  DeIdentifyAction,
+  DeIdentifyOptions,
+  DeIdentifyReport,
+  DeIdentifyResult,
+  FreeTextPolicy,
+} from './deidentify';
+export {
+  createDeIdentifyTransform,
+  DATE_POLICY,
+  DEID_ACTION,
+  DEID_TRANSFORM_NAME,
+  deIdentifyBundle,
+  FREE_TEXT_POLICY,
+  REDACT_ELEMENT,
+  surrogate,
+} from './deidentify';
 export { fhirJsonParser } from './parsers/fhir-json';
 export { fhirXmlParser } from './parsers/fhir-xml';
 export type {
@@ -105,6 +126,19 @@ export {
  * Cross-version normalization runs as a post-parse stage, so STU3 and R5 input
  * lands on R4 whichever serialization it arrived in. Drop it with
  * `new Normalizer().register(...)` if you want the source release preserved.
+ *
+ * Pass `deIdentify` to add the de-identification stage after it, so it always
+ * operates on canonical R4. `true` uses the defaults; an options object tunes
+ * them. Read the caveats on {@link deIdentifyBundle} before relying on it.
  */
-export const createDefaultNormalizer = (): Normalizer =>
-  new Normalizer().register(fhirJsonParser).register(fhirXmlParser).use(r4VersionTransform);
+export const createDefaultNormalizer = (options: NormalizerOptions = {}): Normalizer => {
+  const normalizer = new Normalizer()
+    .register(fhirJsonParser)
+    .register(fhirXmlParser)
+    .use(r4VersionTransform);
+
+  const { deIdentify } = options;
+  if (deIdentify === undefined || deIdentify === false) return normalizer;
+
+  return normalizer.use(createDeIdentifyTransform(deIdentify === true ? {} : deIdentify));
+};

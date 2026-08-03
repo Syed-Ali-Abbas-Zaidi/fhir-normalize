@@ -5,6 +5,8 @@ import {
   createDefaultNormalizer,
   createParseResult,
   createWarningLog,
+  DATE_POLICY,
+  DEID_TRANSFORM_NAME,
   type FormatParser,
   fhirJsonParser,
   Normalizer,
@@ -107,6 +109,57 @@ describe('createDefaultNormalizer — cross-version', () => {
     expect(normalizer.stages).toEqual([]);
     expect(resource.animal).toBeDefined();
     expect(meta.warnings).toEqual([]);
+  });
+});
+
+describe('createDefaultNormalizer — de-identification', () => {
+  const withNames =
+    '{"resourceType":"Patient","id":"p1","name":[{"family":"Khan","given":["Ali"]}],"birthDate":"1996-04-12"}';
+
+  it('is off unless asked for', () => {
+    const { bundle } = createDefaultNormalizer().parse(withNames);
+
+    expect(JSON.stringify(bundle)).toContain('Khan');
+  });
+
+  it.each([
+    ['deIdentify: false', false],
+    ['no options at all', undefined],
+  ])('stays off for %s', (_label, deIdentify) => {
+    const normalizer =
+      deIdentify === undefined
+        ? createDefaultNormalizer()
+        : createDefaultNormalizer({ deIdentify });
+
+    expect(normalizer.stages).not.toContain(DEID_TRANSFORM_NAME);
+  });
+
+  it('strips identifiers when passed `deIdentify: true`', () => {
+    const { bundle, meta } = createDefaultNormalizer({ deIdentify: true }).parse(withNames);
+
+    expect(JSON.stringify(bundle)).not.toContain('Khan');
+    expect(meta.warnings.some((warning) => warning.includes('De-identified'))).toBe(true);
+  });
+
+  it('accepts an options object', () => {
+    const { bundle } = createDefaultNormalizer({
+      deIdentify: { dates: DATE_POLICY.KEEP },
+    }).parse(withNames);
+
+    expect(JSON.stringify(bundle)).toContain('1996-04-12');
+    expect(JSON.stringify(bundle)).not.toContain('Khan');
+  });
+
+  it('runs after cross-version normalization, so it sees canonical R4', () => {
+    const normalizer = createDefaultNormalizer({ deIdentify: true });
+
+    expect(normalizer.stages).toEqual([VERSION_TRANSFORM_NAME, DEID_TRANSFORM_NAME]);
+  });
+
+  it('always states that it is not a certified anonymisation', () => {
+    const { meta } = createDefaultNormalizer({ deIdentify: true }).parse(withNames);
+
+    expect(meta.warnings.some((warning) => warning.includes('not a certified'))).toBe(true);
   });
 });
 

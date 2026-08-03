@@ -28,7 +28,7 @@ import type { Bundle, FhirResource } from 'fhir-normalize';
 
 ## Status
 
-`1.3.0`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform`, and the `Normalizer`
+`1.4.0`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform`, and the `Normalizer`
 methods — is stable under semver; anything breaking lands in a major.
 
 | Format | Status |
@@ -37,6 +37,7 @@ methods — is stable under semver; anything breaking lands in a major.
 | FHIR XML | ✅ Supported |
 | Cross-version STU3 / R5 → R4 | ✅ Supported (curated field set) |
 | Simplified view (choice types resolved) | ✅ Supported (full Base + Clinical sections) |
+| De-identification | ✅ Supported (structural; see the limits below) |
 | HL7 v2, C-CDA, CSV | 📋 Later |
 
 ## Install
@@ -245,6 +246,65 @@ exports, so the interface compiles as-is.
 `describeShape` returns the same information as data if you want to generate something else from
 it, and `listShapes()` enumerates every resource type with a declared shape.
 
+### De-identification
+
+Pass `deIdentify` to strip direct identifiers as a post-parse stage:
+
+```ts
+const normalizer = createDefaultNormalizer({ deIdentify: true });
+const { bundle, meta } = normalizer.parse(raw);
+```
+
+Names, telecom, addresses, photos, the rendered narrative, and free text are removed. Dates are
+reduced to a year. Ids and references are replaced with stable surrogates, so **the Bundle still
+resolves** — a Patient and every reference to it get the same surrogate:
+
+```jsonc
+// before                                    // after
+"id": "pat-1"                                "id": "14r0qpguzuvg"
+"subject": {                                 "subject": {
+  "reference": "Patient/pat-1",                "reference": "Patient/14r0qpguzuvg"
+  "display": "Ali Khan"                      }
+}
+```
+
+Clinical content survives: the LOINC code, `74.5 kg`, and `status` are all untouched. `Coding.display`
+("Body Weight") is kept because it is vocabulary; `Reference.display` ("Ali Khan") is removed because
+it is usually a person. Those share an element name and are told apart by structure.
+
+```ts
+createDefaultNormalizer({
+  deIdentify: {
+    dates: 'year',        // 'year' | 'redact' | 'keep'
+    freeText: 'redact',   // 'redact' | 'keep'
+    pseudonymizeIds: true,
+    salt: process.env.DEID_SALT,
+    keep: ['birthDate'],
+  },
+});
+```
+
+`deIdentifyBundle(bundle, options)` does the same thing as a plain function and returns a report of
+what changed.
+
+> [!IMPORTANT]
+> **Read these limits before releasing anything.**
+>
+> - **This is not certified HIPAA Safe Harbor or GDPR anonymisation.** It is a structural pass that
+>   acts on element names and datatypes. Whether your output meets your obligations is a judgement
+>   only you can make. Every de-identified parse says so in `meta.warnings`.
+> - **Surrogates are pseudonyms, not a one-way seal.** They use a fast non-cryptographic hash,
+>   because the pass must run synchronously in a browser where `node:crypto` is unavailable. Anyone
+>   who knows the salt and can guess the input space can confirm a guess. Use a long random `salt`
+>   you do not publish, and treat the result as pseudonymised rather than anonymised.
+> - **Free text is removed by default, and that default is doing real work.** Clinical prose names
+>   patients, relatives, and dates, and no structural rule finds that reliably. Setting
+>   `freeText: 'keep'` re-admits that risk and adds a warning saying so.
+> - **Safe Harbor rules this does not implement**: ages over 89 are not aggregated, and dates are
+>   generalized rather than date-shifted, so intervals between events remain intact.
+> - **`unmapped` does not apply here.** De-identification removes data on purpose; it is the one
+>   part of this library that is deliberately lossy.
+
 ### Warnings, not exceptions
 
 Recoverable gaps never throw — they land in `meta.warnings` and the payload still comes back:
@@ -322,6 +382,8 @@ Registering an already-registered format replaces it, so you can also override a
 | `resolveChoice` | Resolves one `value[x]`-style element on its own. |
 | `formatShape`, `describeShape`, `listShapes` | The simplified structure of a resource type, printed or as data. |
 | `shapeFor`, `valueProperties` | Shape lookup with alias resolution, and a value kind's property names. |
+| `deIdentifyBundle`, `createDeIdentifyTransform` | Structural de-identification, as a function or a stage. |
+| `DATE_POLICY`, `FREE_TEXT_POLICY`, `REDACT_ELEMENT` | De-identification policy tokens and the redact list. |
 | `RESOURCE_SHAPE`, `VALUE_KIND` | The per-resource field specs and the value-kind tokens. |
 | `ParseResult` | `{ bundle, meta: { sourceFormat, parsedAt, warnings } }`. |
 | `FormatParser` | The adapter contract to implement for a new format. |
