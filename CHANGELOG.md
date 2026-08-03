@@ -5,6 +5,19 @@ All notable changes to `fhir-normalize`.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.1] — 2026-08-03
+
+Documentation only. No code changed — the source is identical to `1.5.0`. npm cannot update a
+package page without a new version, so this exists to get the install instructions published.
+
+### Added
+
+- Install commands for npm, yarn, pnpm, and bun, each verified against the published release
+  including the subpath entry points under Yarn Plug'n'Play and pnpm's isolated `node_modules`.
+- A note that pnpm 11 holds back very recent releases by default (`minimumReleaseAge`), so
+  `pnpm add fhir-normalize` shortly after a release can resolve to the previous version — which,
+  before `1.5.0`, means the subpath imports appear not to exist.
+
 ## [1.5.0] — 2026-08-03
 
 ### Added
@@ -112,6 +125,7 @@ follows [semantic versioning](https://semver.org/spec/v2.0.0.html).
   only for input that cannot be read at all.
 - Dual ESM + CJS output with generated type declarations.
 
+[1.5.1]: https://github.com/Syed-Ali-Abbas-Zaidi/fhir-normalize/releases/tag/v1.5.1
 [1.5.0]: https://github.com/Syed-Ali-Abbas-Zaidi/fhir-normalize/releases/tag/v1.5.0
 [1.4.0]: https://github.com/Syed-Ali-Abbas-Zaidi/fhir-normalize/releases/tag/v1.4.0
 [1.3.0]: https://github.com/Syed-Ali-Abbas-Zaidi/fhir-normalize/releases/tag/v1.3.0
