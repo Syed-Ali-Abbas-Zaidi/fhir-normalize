@@ -71,19 +71,28 @@ export const toConcept = (value: unknown): NormalizedConcept => {
   };
 };
 
+/**
+ * A Quantity, or a Money.
+ *
+ * Money carries `currency` where Quantity carries `unit`, and the two are
+ * otherwise the same shape. Reading currency as the unit keeps `1000 USD` from
+ * rendering as a bare `1000`, which is what a financial resource would
+ * otherwise produce.
+ */
 export const toQuantity = (value: unknown): NormalizedQuantity => {
   const record = isRecord(value) ? value : {};
   const amount = num(record.value);
-  const unit = str(record.unit) ?? str(record.code);
+  const currency = str(record.currency);
+  const unit = str(record.unit) ?? currency;
   const comparator = str(record.comparator);
 
   return {
     kind: VALUE_KIND.QUANTITY,
-    text: label([comparator, amount === null ? null : String(amount), unit]),
+    text: label([comparator, amount === null ? null : String(amount), unit ?? str(record.code)]),
     value: amount,
-    unit: str(record.unit),
+    unit,
     system: str(record.system),
-    code: str(record.code),
+    code: str(record.code) ?? currency,
     comparator,
   };
 };

@@ -5,6 +5,21 @@ All notable changes to `fhir-normalize`.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] — 2026-08-04
+
+### Added
+
+- **The whole Financial section** of the FHIR resource list — Support, Billing, Payment, and
+  General — plus the R4 members the current build dropped or moved: `EnrollmentRequest`,
+  `EnrollmentResponse`, `Invoice`, `ChargeItem`, `ChargeItemDefinition`, `Contract`, and
+  `InsurancePlan`. 16 new shapes, 90 in total.
+
+### Fixed
+
+- **Money rendered without its currency.** `Money` carries `currency` where `Quantity` carries
+  `unit`, so an `ExplanationOfBenefit` total read `1250.5` instead of `1250.5 USD`. Covering the
+  Financial section is what surfaced it; clinical quantities are unaffected.
+
 ## [1.5.1] — 2026-08-03
 
 Documentation only. No code changed — the source is identical to `1.5.0`. npm cannot update a
@@ -125,6 +140,7 @@ package page without a new version, so this exists to get the install instructio
   only for input that cannot be read at all.
 - Dual ESM + CJS output with generated type declarations.
 
+[1.6.0]: https://github.com/Syed-Ali-Abbas-Zaidi/fhir-normalize/releases/tag/v1.6.0
 [1.5.1]: https://github.com/Syed-Ali-Abbas-Zaidi/fhir-normalize/releases/tag/v1.5.1
 [1.5.0]: https://github.com/Syed-Ali-Abbas-Zaidi/fhir-normalize/releases/tag/v1.5.0
 [1.4.0]: https://github.com/Syed-Ali-Abbas-Zaidi/fhir-normalize/releases/tag/v1.4.0

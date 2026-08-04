@@ -140,6 +140,46 @@ describe('Clinical section coverage', () => {
   });
 });
 
+/**
+ * The Financial section, transcribed from the same page on 2026-08-04.
+ */
+const FINANCIAL_SECTION = {
+  Support: ['Coverage', 'CoverageEligibilityRequest', 'CoverageEligibilityResponse'],
+  Billing: ['Claim', 'ClaimResponse'],
+  Payment: ['PaymentNotice', 'PaymentReconciliation'],
+  General: ['Account', 'ExplanationOfBenefit'],
+} as const;
+
+/** R4 members of the Financial module the current build dropped or moved. */
+const FINANCIAL_R4_ONLY = [
+  'EnrollmentRequest',
+  'EnrollmentResponse',
+  'Invoice',
+  'ChargeItem',
+  'ChargeItemDefinition',
+  'Contract',
+  'InsurancePlan',
+] as const;
+
+describe('Financial section coverage', () => {
+  for (const [section, resources] of Object.entries(FINANCIAL_SECTION)) {
+    it.each(resources)(`${section}: %s has a shape`, (resourceType) => {
+      expect(shapeFor(resourceType)).toBeDefined();
+    });
+  }
+
+  it.each(FINANCIAL_R4_ONLY)('R4-only: %s has a shape', (resourceType) => {
+    expect(shapeFor(resourceType)).toBeDefined();
+  });
+
+  it('covers every listed resource with no gaps', () => {
+    const listed = [...Object.values(FINANCIAL_SECTION).flat(), ...FINANCIAL_R4_ONLY];
+    const missing = listed.filter((resourceType) => shapeFor(resourceType) === undefined);
+
+    expect(missing).toEqual([]);
+  });
+});
+
 describe('every declared shape survives real input', () => {
   /**
    * Builds a resource that exercises the shape: one plausible value per

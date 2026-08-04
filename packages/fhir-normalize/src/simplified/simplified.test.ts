@@ -97,6 +97,25 @@ describe('simplifyResource — the shape is predictable', () => {
     }
   });
 
+  it('reads Money, which carries currency where Quantity carries unit', () => {
+    const { fields } = simplifyResource({
+      resourceType: 'PaymentNotice',
+      status: 'active',
+      amount: { value: 1000, currency: 'USD' },
+    });
+
+    // Without this the financial resources render a bare `1000`.
+    expect(fields.amount).toMatchObject({ text: '1000 USD', value: 1000, unit: 'USD' });
+  });
+
+  it('leaves a clinical Quantity alone', () => {
+    const { fields } = simplifyResource(
+      observation({ valueQuantity: { value: 74.5, unit: 'kg', code: 'kg' } }),
+    );
+
+    expect(fields.value).toMatchObject({ text: '74.5 kg', unit: 'kg', code: 'kg' });
+  });
+
   it('splits a reference into its resource type and id', () => {
     const { fields } = simplifyResource(observation({ subject: { reference: 'Patient/pat-1' } }));
 
