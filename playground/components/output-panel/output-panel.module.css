@@ -5,6 +5,9 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  transition:
+    background-color var(--theme-shift),
+    border-color var(--theme-shift);
 }
 
 .header {
@@ -36,9 +39,9 @@
   font-size: 10.5px;
   padding: 2px 8px;
   border-radius: 5px;
-  background: #13232f;
-  color: #7fa0b0;
-  border: 1px solid #1e3341;
+  background: var(--console-chip);
+  color: var(--console-chip-ink);
+  border: 1px solid var(--console-chip-line);
   white-space: nowrap;
 }
 
@@ -50,9 +53,9 @@
   font-size: 11px;
   padding: 5px 9px;
   border-radius: var(--radius-control);
-  border: 1px solid #21323f;
+  border: 1px solid var(--console-control-line);
   background: transparent;
-  color: #9fb2bf;
+  color: var(--console-control-ink);
   transition: border-color 0.15s ease;
 }
 
@@ -62,7 +65,7 @@
 }
 
 .copy:disabled {
-  color: #3f505d;
+  color: var(--console-control-off);
   cursor: default;
 }
 
@@ -101,7 +104,7 @@
   min-height: 300px;
   max-height: 460px;
   scrollbar-width: thin;
-  scrollbar-color: #26384a transparent;
+  scrollbar-color: var(--console-scroll) transparent;
 }
 
 .fade {

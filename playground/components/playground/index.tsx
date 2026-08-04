@@ -4,6 +4,7 @@ import { Stethoscope } from 'lucide-react';
 import { InputPanel } from '@/components/input-panel';
 import { OutputPanel } from '@/components/output-panel';
 import { PipelineStrip } from '@/components/pipeline-strip';
+import { ThemeToggle } from '@/components/theme-toggle';
 import { RESULT_STATE } from '@/constants';
 import { usePlayground } from '@/hooks';
 import { registeredFormats, registeredStages } from '@/utils';
@@ -48,6 +49,7 @@ export const Playground = () => {
               Paste any supported format — get one standard shape back.
             </p>
           </div>
+          <ThemeToggle />
         </header>
 
         <PipelineStrip
