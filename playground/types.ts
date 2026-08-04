@@ -1,10 +1,33 @@
 import type { ParseResult, SimplifiedResource, SourceFormat } from 'fhir-normalize';
-import type { JSON_TOKEN, OUTPUT_TAB, PARSE_MODE, RESULT_STATE, SHAPE_FORMAT } from '@/constants';
+import type {
+  JSON_TOKEN,
+  OUTPUT_TAB,
+  PARSE_MODE,
+  RESULT_STATE,
+  SHAPE_FORMAT,
+  THEME,
+} from '@/constants';
 
 export type ParseMode = (typeof PARSE_MODE)[keyof typeof PARSE_MODE];
 export type OutputTab = (typeof OUTPUT_TAB)[keyof typeof OUTPUT_TAB];
 export type JsonTokenKind = (typeof JSON_TOKEN)[keyof typeof JSON_TOKEN];
 export type ShapeFormat = (typeof SHAPE_FORMAT)[keyof typeof SHAPE_FORMAT];
+
+/** What the user picked. */
+export type Theme = (typeof THEME)[keyof typeof THEME];
+
+/** What that resolves to — the only values `data-theme` is ever set to. */
+export type ResolvedTheme = Exclude<Theme, typeof THEME.SYSTEM>;
+
+export interface ThemeOption {
+  value: Theme;
+  label: string;
+}
+
+export interface ThemeState {
+  theme: Theme;
+  setTheme: (theme: Theme) => void;
+}
 
 /** One section of the resource list, for the shape picker. */
 export interface ShapeGroup {

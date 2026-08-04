@@ -1,0 +1,37 @@
+.toggle {
+  display: flex;
+  gap: 2px;
+  margin: 0 0 0 auto;
+  padding: 3px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--panel);
+  transition:
+    background-color var(--theme-shift),
+    border-color var(--theme-shift);
+}
+
+.option {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--faint);
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.option:hover {
+  color: var(--brand);
+}
+
+.option[aria-pressed="true"] {
+  background: var(--brand-tint);
+  color: var(--brand);
+}

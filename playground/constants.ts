@@ -1,5 +1,5 @@
 import { SOURCE_FORMAT } from 'fhir-normalize';
-import type { ModeOption, SampleConfig, ShapeFormat, TabConfig } from '@/types';
+import type { ModeOption, SampleConfig, ShapeFormat, TabConfig, ThemeOption } from '@/types';
 
 /**
  * Parse modes offered by the toggle. The two explicit modes are the library's
@@ -18,6 +18,53 @@ export const OUTPUT_TAB = {
   EXTRACTED: 'extracted',
   WARNINGS: 'warnings',
 } as const;
+
+/**
+ * The three theme preferences. `SYSTEM` is a preference, never a surface — it
+ * resolves to `LIGHT` or `DARK` before anything reaches the DOM.
+ */
+export const THEME = {
+  LIGHT: 'light',
+  DARK: 'dark',
+  SYSTEM: 'system',
+} as const;
+
+/** What a first-time visitor gets: whatever their OS already asks for. */
+export const DEFAULT_THEME = THEME.SYSTEM;
+
+export const THEME_STORAGE_KEY = 'fhir-normalize:theme';
+
+/** The attribute every theme block in `app/theme.css` is scoped to. */
+export const THEME_ATTRIBUTE = 'data-theme';
+
+export const THEME_OPTIONS: readonly ThemeOption[] = [
+  { value: THEME.LIGHT, label: 'Light' },
+  { value: THEME.DARK, label: 'Dark' },
+  { value: THEME.SYSTEM, label: 'System' },
+];
+
+/**
+ * Runs in `<head>` before first paint, so the page never flashes the wrong
+ * surface and then corrects itself. It is deliberately a duplicate of the
+ * store's resolution logic — the store cannot run this early — but it is built
+ * from the same constants, so the two cannot disagree about names or values.
+ */
+export const THEME_BOOTSTRAP_SCRIPT = `
+(() => {
+  try {
+    const stored = localStorage.getItem('${THEME_STORAGE_KEY}');
+    const explicit = stored === '${THEME.LIGHT}' || stored === '${THEME.DARK}';
+    const prefersDark = matchMedia('(prefers-color-scheme: dark)').matches;
+    const resolved = explicit ? stored : (prefersDark ? '${THEME.DARK}' : '${THEME.LIGHT}');
+    document.documentElement.setAttribute('${THEME_ATTRIBUTE}', resolved);
+  } catch {
+    /* Storage blocked; the stylesheet's own default stands. */
+  }
+})();
+`;
+
+/** The global accessibility utility in `app/globals.css`, not a module class. */
+export const VISUALLY_HIDDEN = 'visually-hidden';
 
 export const RESULT_STATE = {
   EMPTY: 'empty',

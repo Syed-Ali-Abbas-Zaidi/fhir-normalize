@@ -1,6 +1,6 @@
 'use client';
 
-import { DEIDENTIFY_LABEL, MODE_OPTIONS, SAMPLES } from '@/constants';
+import { DEIDENTIFY_LABEL, MODE_OPTIONS, SAMPLES, VISUALLY_HIDDEN } from '@/constants';
 import styles from './input-panel.module.css';
 import type { InputPanelProps } from './types';
 
@@ -20,7 +20,7 @@ export const InputPanel = ({
         input · raw
       </label>
       <fieldset className={styles.modes}>
-        <legend className={styles.legend}>Input format</legend>
+        <legend className={VISUALLY_HIDDEN}>Input format</legend>
         {MODE_OPTIONS.map(({ value, label }) => (
           <button
             key={value}

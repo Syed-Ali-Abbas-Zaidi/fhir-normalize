@@ -1,0 +1,117 @@
+/*
+ * Theming — the single home for every colour in the playground.
+ *
+ * Structure:
+ *   1. `:root`                — the light theme, plus every theme-independent
+ *                               value (type, radii, layout) no theme overrides.
+ *   2. `[data-theme="…"]`     — one block per theme, listing only what changes.
+ *
+ * Three rules keep this scalable:
+ *   - Component CSS never writes a raw colour. If a component needs one it has
+ *     no token for, add a semantic token here first.
+ *   - Token names say what a colour is *for*, never what it looks like —
+ *     `--console-dim`, not `--grey-500`. That is what lets a theme repaint the
+ *     app without renaming anything downstream.
+ *   - A theme block lists deltas only; whatever it omits inherits from `:root`.
+ *
+ * `data-theme` is written by the store in `utils/theme.ts` and, before first
+ * paint, by the bootstrap script in `constants.ts`. It is always resolved to a
+ * concrete surface — "system" never reaches the DOM.
+ *
+ * The palette is the clinical light surface from the design doc against the
+ * dark "console" the normalized output lands in — the light-to-dark crossing is
+ * the transformation, made visual. Dark mode cannot carry that crossing in
+ * lightness, so it carries it in depth instead: the page recedes furthest, the
+ * console sits back from the chrome, and the input panel lifts above both.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* Chrome — the surface raw input is typed on. */
+  --bg: #f5f8f8;
+  --panel: #ffffff;
+  --ink: #0f1e2a;
+  --soft: #5c6e78;
+  --faint: #8a9aa3;
+  --line: #e2eaeb;
+  --line-strong: #c2cfd2;
+  --placeholder: #a7b6bd;
+
+  /* Brand. `--brand-ink` is whatever stays legible *on* `--brand`. */
+  --brand: #0c7c84;
+  --brand-ink: #ffffff;
+  --brand-tint: #e4f1f1;
+
+  /* Console — the surface normalized output lands on. Dark in every theme. */
+  --console: #0a1620;
+  --console-line: #16232f;
+  --console-card: #0f2029;
+  --console-border: #1c2f3b;
+  --console-row-line: #16262f;
+  --console-ink-strong: #cddbe2;
+  --console-ink: #dfe9ee;
+  --console-soft: #8aa0ad;
+  --console-faint: #6c8090;
+  --console-dim: #5f7385;
+  --console-chip: #13232f;
+  --console-chip-ink: #7fa0b0;
+  --console-chip-line: #1e3341;
+  --console-control-line: #21323f;
+  --console-control-ink: #9fb2bf;
+  --console-control-off: #3f505d;
+  --console-scroll: #26384a;
+  --console-empty-icon: #3f6b73;
+
+  /* Notices. These only ever render on the console, so they stay dark. */
+  --alert-bg: #2a1a10;
+  --alert-border: #3d2814;
+  --alert-strong-border: #4a2f18;
+  --alert-ink: #e6ab7c;
+  --alert-soft: #d3c2b2;
+  --alert-message: #c8b6a6;
+  --ok: #7fae9b;
+
+  /* Syntax highlighting, tuned for the console surface. */
+  --token-key: #68d5c9;
+  --token-string: #b5d98a;
+  --token-number: #e6ab7c;
+  --token-literal: #c79be3;
+
+  /* Type, shape, layout — no theme overrides these. */
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Fira Code", Menlo, Consolas, monospace;
+
+  /* How long a surface takes to cross to the other theme. */
+  --theme-shift: 0.2s ease;
+
+  --radius-panel: 14px;
+  --radius-control: 7px;
+  --radius-pill: 20px;
+
+  --shell-width: 1120px;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #05090d;
+  --panel: #121e27;
+  --ink: #dde7ec;
+  --soft: #93a6b1;
+  --faint: #7b909c;
+  --line: #20303b;
+  --line-strong: #31434f;
+  --placeholder: #6b7e88;
+
+  --brand: #35b6bd;
+  --brand-ink: #04191b;
+  --brand-tint: #0f2f33;
+
+  --console: #080f16;
+  --console-line: #14222c;
+  --console-card: #0d1a22;
+  --console-border: #1b2c37;
+  --console-chip: #101d26;
+}

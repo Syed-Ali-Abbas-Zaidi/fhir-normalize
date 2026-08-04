@@ -22,7 +22,7 @@
   display: grid;
   place-items: center;
   flex-shrink: 0;
-  color: #fff;
+  color: var(--brand-ink);
 }
 
 .wordmark {

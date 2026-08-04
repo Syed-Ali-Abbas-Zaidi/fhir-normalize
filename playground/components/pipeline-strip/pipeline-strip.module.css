@@ -10,6 +10,9 @@
   border: 1px solid var(--line);
   border-radius: 12px;
   scrollbar-width: thin;
+  transition:
+    background-color var(--theme-shift),
+    border-color var(--theme-shift);
 }
 
 .stage {
@@ -22,7 +25,7 @@
 /* The connector between stages is decoration on the sequence, not an item. */
 .stage + .stage::before {
   content: "\2192";
-  color: #c2cfd2;
+  color: var(--line-strong);
   font-size: 14px;
   line-height: 1;
   margin-right: 3px;
