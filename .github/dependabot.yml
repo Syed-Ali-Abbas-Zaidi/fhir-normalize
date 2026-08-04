@@ -1,0 +1,62 @@
+version: 2
+
+updates:
+  # ---------------------------------------------------------------- npm ----
+  # One entry covering every workspace manifest. Dependabot reads the pnpm
+  # lockfile at the root, but each package.json needs listing for its own
+  # dependencies to be seen.
+  - package-ecosystem: npm
+    directories:
+      - /
+      - /packages/fhir-normalize
+      - /playground
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Asia/Karachi
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore
+      include: scope
+    labels:
+      - dependencies
+
+    # Without grouping this is three directories times every dependency, which
+    # is a lot of individual pull requests for a repository this size.
+    groups:
+      production:
+        dependency-type: production
+        update-types:
+          - minor
+          - patch
+      development:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+
+    ignore:
+      # TypeScript is held at 5.x deliberately. tsup's rollup-plugin-dts is
+      # built against TS 5.7 internals and crashes on TS 7, which would ship
+      # the package with no .d.ts at all — the build "succeeds" for JS and
+      # silently loses the types. Unpin only after verifying `pnpm build`
+      # still emits dist/index.d.ts.
+      - dependency-name: typescript
+        update-types:
+          - version-update:semver-major
+
+  # ------------------------------------------------------ github actions ----
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: ci
+    labels:
+      - dependencies
+    groups:
+      actions:
+        patterns:
+          - '*'
