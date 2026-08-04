@@ -1,18 +1,21 @@
 import type { ResourceShape } from '../types';
 import { BASE_SHAPE } from './base';
 import { CLINICAL_ALIAS, CLINICAL_SHAPE } from './clinical';
+import { FINANCIAL_SHAPE } from './financial';
 import { FOUNDATION_SHAPE } from './foundation';
 
 export { BASE_SHAPE } from './base';
 export { CLINICAL_ALIAS, CLINICAL_SHAPE } from './clinical';
+export { FINANCIAL_SHAPE } from './financial';
 export { FOUNDATION_SHAPE } from './foundation';
 
 /**
  * Every declared resource shape, grouped by the section it belongs to in the
  * FHIR resource list so coverage stays auditable per section.
  *
- * The Base and Clinical sections are covered in full. Foundation is partial by
- * design — only the resources clinical payloads carry often. A resource type
+ * The Base, Clinical, and Financial sections are covered in full. Foundation
+ * is partial by design — only the resources clinical payloads carry often. A
+ * resource type
  * with no shape still gets its choice elements resolved; it just has no
  * curated field ordering.
  */
@@ -20,6 +23,7 @@ export const RESOURCE_SHAPE: Readonly<Record<string, ResourceShape>> = {
   ...FOUNDATION_SHAPE,
   ...BASE_SHAPE,
   ...CLINICAL_SHAPE,
+  ...FINANCIAL_SHAPE,
 };
 
 /** Resolves a resource type through the rename aliases before lookup. */
