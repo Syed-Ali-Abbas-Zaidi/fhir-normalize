@@ -180,6 +180,62 @@ describe('Financial section coverage', () => {
   });
 });
 
+/**
+ * The Foundation section, transcribed from the same page on 2026-08-04.
+ */
+const FOUNDATION_SECTION = {
+  Conformance: [
+    'CapabilityStatement',
+    'StructureDefinition',
+    'ImplementationGuide',
+    'SearchParameter',
+    'MessageDefinition',
+    'OperationDefinition',
+    'CompartmentDefinition',
+  ],
+  Terminology: ['CodeSystem', 'ValueSet', 'ConceptMap', 'NamingSystem', 'TerminologyCapabilities'],
+  Security: ['Provenance', 'AuditEvent', 'Consent'],
+  Documents: ['Composition', 'DocumentReference'],
+  Other: [
+    'Basic',
+    'Binary',
+    'Bundle',
+    'MessageHeader',
+    'OperationOutcome',
+    'Parameters',
+    'Subscription',
+    'SubscriptionStatus',
+    'SubscriptionTopic',
+  ],
+} as const;
+
+/** R4 members of the Foundation module the current build dropped or moved. */
+const FOUNDATION_R4_ONLY = [
+  'StructureMap',
+  'GraphDefinition',
+  'ExampleScenario',
+  'Linkage',
+] as const;
+
+describe('Foundation section coverage', () => {
+  for (const [section, resources] of Object.entries(FOUNDATION_SECTION)) {
+    it.each(resources)(`${section}: %s has a shape`, (resourceType) => {
+      expect(shapeFor(resourceType)).toBeDefined();
+    });
+  }
+
+  it.each(FOUNDATION_R4_ONLY)('R4-only: %s has a shape', (resourceType) => {
+    expect(shapeFor(resourceType)).toBeDefined();
+  });
+
+  it('covers every listed resource with no gaps', () => {
+    const listed = [...Object.values(FOUNDATION_SECTION).flat(), ...FOUNDATION_R4_ONLY];
+    const missing = listed.filter((resourceType) => shapeFor(resourceType) === undefined);
+
+    expect(missing).toEqual([]);
+  });
+});
+
 describe('every declared shape survives real input', () => {
   /**
    * Builds a resource that exercises the shape: one plausible value per

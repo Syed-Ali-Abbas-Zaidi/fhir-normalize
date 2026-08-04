@@ -1,7 +1,9 @@
-import type { ResourceShape } from '../types';
+import type { FieldSpec, ResourceShape } from '../types';
 import {
   annotation,
+  choice,
   concept,
+  contact,
   group,
   identifier,
   join,
@@ -13,10 +15,352 @@ import {
 } from './helpers';
 
 /**
- * Foundation-section resources that clinical payloads carry often enough to
- * deserve a curated reading. Not an attempt at the whole section.
+ * The metadata block every canonical resource carries — conformance and
+ * terminology resources are almost entirely made of it. Declared once so the
+ * fifteen resources that share it cannot drift apart.
+ */
+const canonical: Readonly<Record<string, FieldSpec>> = {
+  url: primitive(),
+  identifier: identifier(),
+  version: primitive(),
+  name: primitive(),
+  title: primitive(),
+  status: primitive(),
+  experimental: primitive(),
+  date: primitive(),
+  publisher: primitive(),
+  contact: contact(),
+  description: primitive(),
+  jurisdiction: concept(true),
+  purpose: primitive(),
+  copyright: primitive(),
+  useContext: group({ code: concept(), value: choice() }),
+};
+
+/** Canonical resources that are also versioned artefacts under review. */
+const reviewed: Readonly<Record<string, FieldSpec>> = {
+  approvalDate: primitive(),
+  lastReviewDate: primitive(),
+  effectivePeriod: period(),
+  topic: concept(true),
+};
+
+/**
+ * Every resource in the Foundation section of the FHIR resource list —
+ * Conformance, Terminology, Security, Documents, and Other.
+ *
+ * R4 element names lead. Conformance and terminology resources are deep and
+ * largely definitional, so the shapes declare the metadata that identifies an
+ * artefact rather than the full grammar of what it defines: a
+ * StructureDefinition's element tree and a ValueSet's expansion are data
+ * structures in their own right, and flattening them would lose more than it
+ * clarified. They are still read generically and reported in `unmapped`.
  */
 export const FOUNDATION_SHAPE: Readonly<Record<string, ResourceShape>> = {
+  // -------------------------------------------------------- Conformance ----
+  CapabilityStatement: {
+    fields: {
+      ...canonical,
+      kind: primitive(),
+      instantiates: primitive(true),
+      imports: primitive(true),
+      fhirVersion: primitive(),
+      format: primitive(true),
+      patchFormat: primitive(true),
+      implementationGuide: primitive(true),
+      software: group({ name: primitive(), version: primitive(), releaseDate: primitive() }, false),
+      implementation: group(
+        { description: primitive(), url: primitive(), custodian: reference() },
+        false,
+      ),
+      rest: group({ mode: primitive(), documentation: primitive() }),
+    },
+    display: statusDisplay('title'),
+  },
+
+  StructureDefinition: {
+    fields: {
+      ...canonical,
+      keyword: concept(true),
+      fhirVersion: primitive(),
+      kind: primitive(),
+      abstract: primitive(),
+      contextInvariant: primitive(true),
+      type: primitive(),
+      baseDefinition: primitive(),
+      derivation: primitive(),
+      context: group({ type: primitive(), expression: primitive() }),
+      mapping: group({ identity: primitive(), uri: primitive(), name: primitive() }),
+    },
+    display: statusDisplay('title'),
+  },
+
+  ImplementationGuide: {
+    fields: {
+      ...canonical,
+      packageId: primitive(),
+      license: primitive(),
+      fhirVersion: primitive(true),
+      dependsOn: group({ uri: primitive(), packageId: primitive(), version: primitive() }),
+      global: group({ type: primitive(), profile: primitive() }),
+    },
+    display: statusDisplay('title'),
+  },
+
+  SearchParameter: {
+    fields: {
+      ...canonical,
+      derivedFrom: primitive(),
+      code: primitive(),
+      base: primitive(true),
+      type: primitive(),
+      expression: primitive(),
+      xpath: primitive(),
+      xpathUsage: primitive(),
+      target: primitive(true),
+      multipleOr: primitive(),
+      multipleAnd: primitive(),
+      comparator: primitive(true),
+      modifier: primitive(true),
+      chain: primitive(true),
+      component: group({ definition: primitive(), expression: primitive() }),
+    },
+    display: (fields) => join(textOf(fields, 'code'), textOf(fields, 'type')),
+  },
+
+  MessageDefinition: {
+    fields: {
+      ...canonical,
+      replaces: primitive(true),
+      base: primitive(),
+      parent: primitive(true),
+      event: choice(),
+      category: primitive(),
+      responseRequired: primitive(),
+      focus: group({ code: primitive(), profile: primitive(), min: primitive(), max: primitive() }),
+      allowedResponse: group({ message: primitive(), situation: primitive() }),
+    },
+    display: statusDisplay('title'),
+  },
+
+  OperationDefinition: {
+    fields: {
+      ...canonical,
+      kind: primitive(),
+      affectsState: primitive(),
+      code: primitive(),
+      comment: primitive(),
+      base: primitive(),
+      resource: primitive(true),
+      system: primitive(),
+      type: primitive(),
+      instance: primitive(),
+      inputProfile: primitive(),
+      outputProfile: primitive(),
+      parameter: group({
+        name: primitive(),
+        use: primitive(),
+        min: primitive(),
+        max: primitive(),
+        documentation: primitive(),
+        type: primitive(),
+      }),
+    },
+    display: (fields) => join(textOf(fields, 'code'), textOf(fields, 'status')),
+  },
+
+  CompartmentDefinition: {
+    fields: {
+      ...canonical,
+      code: primitive(),
+      search: primitive(),
+      resource: group({ code: primitive(), param: primitive(true), documentation: primitive() }),
+    },
+    display: statusDisplay('code'),
+  },
+
+  // -------------------------------------------------------- Terminology ----
+  CodeSystem: {
+    fields: {
+      ...canonical,
+      ...reviewed,
+      caseSensitive: primitive(),
+      valueSet: primitive(),
+      hierarchyMeaning: primitive(),
+      compositional: primitive(),
+      versionNeeded: primitive(),
+      content: primitive(),
+      supplements: primitive(),
+      count: primitive(),
+      filter: group({ code: primitive(), operator: primitive(true), value: primitive() }),
+      property: group({ code: primitive(), type: primitive(), description: primitive() }),
+      concept: group({ code: primitive(), display: primitive(), definition: primitive() }),
+    },
+    display: (fields) =>
+      join(textOf(fields, 'title') ?? textOf(fields, 'name'), textOf(fields, 'content')),
+  },
+
+  ValueSet: {
+    fields: {
+      ...canonical,
+      ...reviewed,
+      immutable: primitive(),
+      compose: group({ lockedDate: primitive(), inactive: primitive() }, false),
+      expansion: group(
+        { identifier: primitive(), timestamp: primitive(), total: primitive() },
+        false,
+      ),
+    },
+    display: statusDisplay('title'),
+  },
+
+  ConceptMap: {
+    fields: {
+      ...canonical,
+      ...reviewed,
+      source: choice(),
+      target: choice(),
+      group: group({ source: primitive(), target: primitive() }),
+    },
+    display: statusDisplay('title'),
+  },
+
+  NamingSystem: {
+    fields: {
+      name: primitive(),
+      status: primitive(),
+      kind: primitive(),
+      date: primitive(),
+      publisher: primitive(),
+      contact: contact(),
+      responsible: primitive(),
+      type: concept(),
+      description: primitive(),
+      jurisdiction: concept(true),
+      usage: primitive(),
+      useContext: group({ code: concept(), value: choice() }),
+      uniqueId: group({
+        type: primitive(),
+        value: primitive(),
+        preferred: primitive(),
+        period: period(),
+      }),
+    },
+    display: statusDisplay('name'),
+  },
+
+  TerminologyCapabilities: {
+    fields: {
+      ...canonical,
+      kind: primitive(),
+      lockedDate: primitive(),
+      codeSearch: primitive(),
+      software: group({ name: primitive(), version: primitive() }, false),
+      implementation: group({ description: primitive(), url: primitive() }, false),
+      codeSystem: group({ uri: primitive(), subsumption: primitive() }),
+    },
+    display: statusDisplay('title'),
+  },
+
+  // ----------------------------------------------------------- Security ----
+  Provenance: {
+    fields: {
+      target: reference(true),
+      occurred: choice(),
+      recorded: primitive(),
+      policy: primitive(true),
+      location: reference(),
+      reason: concept(true),
+      activity: concept(),
+      agent: group({
+        type: concept(),
+        role: concept(true),
+        who: reference(),
+        onBehalfOf: reference(),
+      }),
+      entity: group({ role: primitive(), what: reference() }),
+    },
+    display: (fields) => join(textOf(fields, 'activity'), textOf(fields, 'recorded')),
+  },
+
+  AuditEvent: {
+    fields: {
+      type: concept(),
+      subtype: concept(true),
+      action: primitive(),
+      period: period(),
+      recorded: primitive(),
+      outcome: primitive(),
+      outcomeDesc: primitive(),
+      purposeOfEvent: concept(true),
+      agent: group({
+        type: concept(),
+        role: concept(true),
+        who: reference(),
+        requestor: primitive(),
+        altId: primitive(),
+        name: primitive(),
+      }),
+      source: group({ site: primitive(), observer: reference(), type: concept(true) }, false),
+      entity: group({ what: reference(), type: concept(), role: concept(), name: primitive() }),
+    },
+    display: (fields) => join(textOf(fields, 'type'), textOf(fields, 'recorded')),
+  },
+
+  Consent: {
+    fields: {
+      identifier: identifier(),
+      status: primitive(),
+      scope: concept(),
+      category: concept(true),
+      patient: reference(),
+      dateTime: primitive(),
+      performer: reference(true),
+      organization: reference(true),
+      source: choice(),
+      policyRule: concept(),
+      policy: group({ authority: primitive(), uri: primitive() }),
+      verification: group({
+        verified: primitive(),
+        verifiedWith: reference(),
+        verificationDate: primitive(),
+      }),
+      provision: group({ type: primitive(), period: period(), action: concept(true) }, false),
+    },
+    display: statusDisplay('scope'),
+  },
+
+  // ---------------------------------------------------------- Documents ----
+  Composition: {
+    fields: {
+      identifier: identifier(false),
+      status: primitive(),
+      type: concept(),
+      category: concept(true),
+      subject: reference(),
+      encounter: reference(),
+      date: primitive(),
+      author: reference(true),
+      title: primitive(),
+      confidentiality: primitive(),
+      custodian: reference(),
+      note: annotation(),
+      attester: group({ mode: primitive(), time: primitive(), party: reference() }),
+      relatesTo: group({ code: primitive(), target: choice() }),
+      event: group({ code: concept(true), period: period(), detail: reference(true) }),
+      section: group({
+        title: primitive(),
+        code: concept(),
+        author: reference(true),
+        focus: reference(),
+        orderedBy: concept(),
+        entry: reference(true),
+        emptyReason: concept(),
+      }),
+    },
+    display: statusDisplay('title'),
+  },
+
   DocumentReference: {
     fields: {
       identifier: identifier(),
@@ -49,29 +393,7 @@ export const FOUNDATION_SHAPE: Readonly<Record<string, ResourceShape>> = {
     display: statusDisplay('type'),
   },
 
-  Provenance: {
-    fields: {
-      target: reference(true),
-      occurred: primitive(),
-      recorded: primitive(),
-      policy: primitive(true),
-      location: reference(),
-      reason: concept(true),
-      activity: concept(),
-      agent: group({ type: concept(), role: concept(true), who: reference() }),
-      entity: group({ role: primitive(), what: reference() }),
-    },
-    display: (fields) => join(textOf(fields, 'activity'), textOf(fields, 'recorded')),
-  },
-
-  Binary: {
-    fields: {
-      contentType: primitive(),
-      securityContext: reference(),
-    },
-    display: () => null,
-  },
-
+  // -------------------------------------------------------------- Other ----
   Basic: {
     fields: {
       identifier: identifier(),
@@ -80,32 +402,159 @@ export const FOUNDATION_SHAPE: Readonly<Record<string, ResourceShape>> = {
       created: primitive(),
       author: reference(),
     },
+    display: (fields) => textOf(fields, 'code'),
+  },
+
+  Binary: {
+    fields: {
+      contentType: primitive(),
+      securityContext: reference(),
+    },
+    display: (fields) => textOf(fields, 'contentType'),
+  },
+
+  Bundle: {
+    fields: {
+      identifier: identifier(false),
+      type: primitive(),
+      timestamp: primitive(),
+      total: primitive(),
+      link: group({ relation: primitive(), url: primitive() }),
+      signature: group({ type: concept(true), when: primitive(), who: reference() }, false),
+    },
+    display: (fields) => join(textOf(fields, 'type'), textOf(fields, 'total')),
+  },
+
+  MessageHeader: {
+    fields: {
+      event: choice(),
+      sender: reference(),
+      enterer: reference(),
+      author: reference(),
+      responsible: reference(),
+      reason: concept(),
+      focus: reference(true),
+      definition: primitive(),
+      destination: group({ name: primitive(), target: reference(), endpoint: primitive() }),
+      source: group({ name: primitive(), software: primitive(), endpoint: primitive() }, false),
+      response: group({ identifier: primitive(), code: primitive(), details: reference() }, false),
+    },
+    display: (fields) => textOf(fields, 'event'),
+  },
+
+  OperationOutcome: {
+    fields: {
+      issue: group({
+        severity: primitive(),
+        code: primitive(),
+        details: concept(),
+        diagnostics: primitive(),
+        location: primitive(true),
+        expression: primitive(true),
+      }),
+    },
     display: () => null,
   },
 
-  Composition: {
+  Parameters: {
     fields: {
-      identifier: identifier(false),
+      parameter: group({ name: primitive(), value: choice(), resource: reference() }),
+    },
+    display: () => null,
+  },
+
+  Subscription: {
+    fields: {
       status: primitive(),
-      type: concept(),
-      category: concept(true),
-      subject: reference(),
-      encounter: reference(),
-      date: primitive(),
-      author: reference(true),
-      title: primitive(),
-      custodian: reference(),
-      note: annotation(),
-      section: group({
-        title: primitive(),
-        code: concept(),
-        author: reference(true),
+      contact: contact(),
+      end: primitive(),
+      reason: primitive(),
+      criteria: primitive(),
+      error: primitive(),
+      channel: group(
+        { type: primitive(), endpoint: primitive(), payload: primitive(), header: primitive(true) },
+        false,
+      ),
+    },
+    display: statusDisplay('reason'),
+  },
+
+  /** R5 and later. */
+  SubscriptionStatus: {
+    fields: {
+      status: primitive(),
+      type: primitive(),
+      eventsSinceSubscriptionStart: primitive(),
+      subscription: reference(),
+      topic: primitive(),
+      error: concept(true),
+      notificationEvent: group({
+        eventNumber: primitive(),
+        timestamp: primitive(),
         focus: reference(),
-        orderedBy: concept(),
-        entry: reference(true),
-        emptyReason: concept(),
+      }),
+    },
+    display: (fields) => join(textOf(fields, 'type'), textOf(fields, 'status')),
+  },
+
+  /** R5 and later. */
+  SubscriptionTopic: {
+    fields: {
+      ...canonical,
+      ...reviewed,
+      derivedFrom: primitive(true),
+      resourceTrigger: group({ description: primitive(), resource: primitive() }),
+      eventTrigger: group({ description: primitive(), event: concept() }),
+      canFilterBy: group({
+        description: primitive(),
+        resource: primitive(),
+        filterParameter: primitive(),
       }),
     },
     display: statusDisplay('title'),
+  },
+
+  // -------------------------------------------- R4 members not in the build ----
+  StructureMap: {
+    fields: {
+      ...canonical,
+      structure: group({ url: primitive(), mode: primitive(), alias: primitive() }),
+      import: primitive(true),
+      group: group({ name: primitive(), typeMode: primitive(), documentation: primitive() }),
+    },
+    display: statusDisplay('title'),
+  },
+
+  GraphDefinition: {
+    fields: {
+      ...canonical,
+      start: primitive(),
+      profile: primitive(),
+      link: group({
+        path: primitive(),
+        description: primitive(),
+        min: primitive(),
+        max: primitive(),
+      }),
+    },
+    display: statusDisplay('name'),
+  },
+
+  ExampleScenario: {
+    fields: {
+      ...canonical,
+      actor: group({ actorId: primitive(), type: primitive(), name: primitive() }),
+      process: group({ title: primitive(), description: primitive() }),
+    },
+    display: statusDisplay('name'),
+  },
+
+  Linkage: {
+    fields: {
+      active: primitive(),
+      author: reference(),
+      item: group({ type: primitive(), resource: reference() }),
+    },
+    display: () => null,
   },
 };

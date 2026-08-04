@@ -5,6 +5,23 @@ All notable changes to `fhir-normalize`.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] — 2026-08-04
+
+### Added
+
+- **The whole Foundation section** of the FHIR resource list — Conformance, Terminology, Security,
+  Documents, and Other — plus the R4 members the current build dropped or moved: `StructureMap`,
+  `GraphDefinition`, `ExampleScenario`, and `Linkage`. 25 new shapes, 115 in total. Every section
+  of the resource list except Specialized is now covered in full.
+
+### Notes
+
+- Conformance and terminology resources are largely definitional, so their shapes declare the
+  metadata that identifies an artefact rather than the grammar of what it defines. A
+  `StructureDefinition`'s element tree and a `ValueSet`'s expansion are data structures in their own
+  right; flattening them would lose more than it clarified. They are still read generically and
+  reported in `unmapped`.
+
 ## [1.6.0] — 2026-08-04
 
 ### Added
@@ -140,6 +157,7 @@ package page without a new version, so this exists to get the install instructio
   only for input that cannot be read at all.
 - Dual ESM + CJS output with generated type declarations.
 
+[1.7.0]: https://github.com/Syed-Ali-Abbas-Zaidi/fhir-normalize/releases/tag/v1.7.0
 [1.6.0]: https://github.com/Syed-Ali-Abbas-Zaidi/fhir-normalize/releases/tag/v1.6.0
 [1.5.1]: https://github.com/Syed-Ali-Abbas-Zaidi/fhir-normalize/releases/tag/v1.5.1
 [1.5.0]: https://github.com/Syed-Ali-Abbas-Zaidi/fhir-normalize/releases/tag/v1.5.0
