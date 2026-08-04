@@ -28,7 +28,7 @@ import type { Bundle, FhirResource } from 'fhir-normalize';
 
 ## Status
 
-`1.6.0`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform`, and the `Normalizer`
+`1.7.0`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform`, and the `Normalizer`
 methods — is stable under semver; anything breaking lands in a major.
 
 | Format | Status |
@@ -36,7 +36,7 @@ methods — is stable under semver; anything breaking lands in a major.
 | FHIR JSON (resource, Bundle, or array) | ✅ Supported |
 | FHIR XML | ✅ Supported |
 | Cross-version STU3 / R5 → R4 | ✅ Supported (curated field set) |
-| Simplified view (choice types resolved) | ✅ Supported (Base + Clinical + Financial, 90 types) |
+| Simplified view (choice types resolved) | ✅ Supported (Foundation + Base + Clinical + Financial, 115 types) |
 | De-identification | ✅ Supported (structural; see the limits below) |
 | HL7 v2, C-CDA, CSV | 📋 Later |
 
@@ -73,7 +73,7 @@ import { simplifyBundle, formatShape } from 'fhir-normalize/simplified';
 import { deIdentifyBundle } from 'fhir-normalize/deidentify';
 ```
 
-The 90 resource shape tables are the bulk of the library, and they only ship if you import from
+The 115 resource shape tables are the bulk of the library, and they only ship if you import from
 `/simplified`. Measured on a real install, minified:
 
 | What you import | Library code |
@@ -196,12 +196,10 @@ Datatypes are flattened to fixed shapes too, so the variation *within* a field d
 **Every value carries `text`.** A consumer that only wants to display something never switches on
 `kind` at all.
 
-**Coverage: the whole Base, Clinical, and Financial sections** of the
-[FHIR resource list](https://build.fhir.org/resourcelist.html) — Individuals, Entities, Workflow,
-Management, Summary, Diagnostics, Medications, Care Provision, Request &amp; Response, Support,
-Billing, Payment, and General — plus the R4 members the current build renamed or dropped, and the
-Foundation resources clinical payloads carry most often. That is 90 resource types. A test
-transcribes each section list and fails if any entry loses its shape.
+**Coverage: the Foundation, Base, Clinical, and Financial sections in full** — every section of
+the [FHIR resource list](https://build.fhir.org/resourcelist.html) except Specialized — plus the R4
+members the current build renamed or dropped. That is 115 resource types. A test transcribes each
+section list and fails if any entry loses its shape.
 
 Resource types renamed across releases resolve through an alias, so `DeviceUsage` (R5) and
 `DeviceAssociation` (R6) both land on the R4 `DeviceUseStatement` shape.
