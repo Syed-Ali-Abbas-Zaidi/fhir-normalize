@@ -26,6 +26,22 @@ export const group = (fields: Readonly<Record<string, FieldSpec>>, list = true):
 });
 
 /**
+ * A shared block minus the fields a particular resource does not have.
+ *
+ * The blocks below hold what *most* of their resources carry, which is not the
+ * same as what all of them carry — R4 gives `CodeSystem` no `approvalDate` and
+ * `SearchParameter` no `copyright`. Spreading a block unconditionally therefore
+ * declares fields that do not exist, and a declared field is documentation:
+ * `describeShape` reports it and consumers build against it. Subtracting keeps
+ * the block shared without letting it over-claim.
+ */
+export const without = (
+  block: Readonly<Record<string, FieldSpec>>,
+  ...absent: string[]
+): Readonly<Record<string, FieldSpec>> =>
+  Object.fromEntries(Object.entries(block).filter(([key]) => !absent.includes(key)));
+
+/**
  * The metadata block every canonical resource carries. Conformance,
  * terminology, and the definitional artefacts are largely made of it, so it is
  * declared once and spread rather than retyped across three dozen resources.
@@ -55,6 +71,20 @@ export const reviewed: Readonly<Record<string, FieldSpec>> = {
   effectivePeriod: period(),
   topic: concept(true),
 };
+
+/**
+ * A RelatedArtifact — the citation/documentation block the definitional and
+ * evidence resources hang off `relatedArtifact`. A complex datatype rather
+ * than a backbone, but it reads the same way.
+ */
+export const relatedArtifactGroup: FieldSpec = group({
+  type: primitive(),
+  label: primitive(),
+  display: primitive(),
+  citation: primitive(),
+  url: primitive(),
+  resource: primitive(),
+});
 
 /**
  * Authorship roles the evidence and definitional artefacts share, all
