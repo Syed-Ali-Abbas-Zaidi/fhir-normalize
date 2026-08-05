@@ -116,6 +116,19 @@ describe('simplifyResource — the shape is predictable', () => {
     expect(fields.value).toMatchObject({ text: '74.5 kg', unit: 'kg', code: 'kg' });
   });
 
+  it('labels a resource whose name lives inside a backbone element', () => {
+    // MedicinalProductDefinition has no top-level name, so a label built only
+    // from top-level fields would read as a bare status code.
+    const { display } = simplifyResource({
+      resourceType: 'MedicinalProductDefinition',
+      id: 'm1',
+      status: { text: 'active' },
+      name: [{ productName: 'Amoxil 500mg' }],
+    });
+
+    expect(display).toBe('Amoxil 500mg · active');
+  });
+
   it('splits a reference into its resource type and id', () => {
     const { fields } = simplifyResource(observation({ subject: { reference: 'Patient/pat-1' } }));
 

@@ -28,7 +28,7 @@ import type { Bundle, FhirResource } from 'fhir-normalize';
 
 ## Status
 
-`1.7.0`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform`, and the `Normalizer`
+`1.8.0`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform`, and the `Normalizer`
 methods — is stable under semver; anything breaking lands in a major.
 
 | Format | Status |
@@ -36,7 +36,7 @@ methods — is stable under semver; anything breaking lands in a major.
 | FHIR JSON (resource, Bundle, or array) | ✅ Supported |
 | FHIR XML | ✅ Supported |
 | Cross-version STU3 / R5 → R4 | ✅ Supported (curated field set) |
-| Simplified view (choice types resolved) | ✅ Supported (Foundation + Base + Clinical + Financial, 115 types) |
+| Simplified view (choice types resolved) | ✅ Supported (every section, 144 types) |
 | De-identification | ✅ Supported (structural; see the limits below) |
 | HL7 v2, C-CDA, CSV | 📋 Later |
 
@@ -73,7 +73,7 @@ import { simplifyBundle, formatShape } from 'fhir-normalize/simplified';
 import { deIdentifyBundle } from 'fhir-normalize/deidentify';
 ```
 
-The 115 resource shape tables are the bulk of the library, and they only ship if you import from
+The 144 resource shape tables are the bulk of the library, and they only ship if you import from
 `/simplified`. Measured on a real install, minified:
 
 | What you import | Library code |
@@ -196,10 +196,14 @@ Datatypes are flattened to fixed shapes too, so the variation *within* a field d
 **Every value carries `text`.** A consumer that only wants to display something never switches on
 `kind` at all.
 
-**Coverage: the Foundation, Base, Clinical, and Financial sections in full** — every section of
-the [FHIR resource list](https://build.fhir.org/resourcelist.html) except Specialized — plus the R4
-members the current build renamed or dropped. That is 115 resource types. A test transcribes each
-section list and fails if any entry loses its shape.
+**Coverage: every section of the [FHIR resource list](https://build.fhir.org/resourcelist.html) in
+full** — Foundation, Base, Clinical, Financial, and Specialized — plus the R4 members the current
+build renamed or dropped. That is 144 resource types. A test transcribes each section list and
+fails if any entry loses its shape.
+
+Two families are deliberately absent: R4's `MedicinalProduct*` and `Substance*` resources, which R5
+replaced wholesale with the `*Definition` resources that are covered. They still parse and still get
+their choice elements resolved; they simply have no curated field ordering.
 
 Resource types renamed across releases resolve through an alias, so `DeviceUsage` (R5) and
 `DeviceAssociation` (R6) both land on the R4 `DeviceUseStatement` shape.

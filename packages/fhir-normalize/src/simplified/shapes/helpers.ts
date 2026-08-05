@@ -26,6 +26,48 @@ export const group = (fields: Readonly<Record<string, FieldSpec>>, list = true):
 });
 
 /**
+ * The metadata block every canonical resource carries. Conformance,
+ * terminology, and the definitional artefacts are largely made of it, so it is
+ * declared once and spread rather than retyped across three dozen resources.
+ */
+export const canonical: Readonly<Record<string, FieldSpec>> = {
+  url: primitive(),
+  identifier: identifier(),
+  version: primitive(),
+  name: primitive(),
+  title: primitive(),
+  status: primitive(),
+  experimental: primitive(),
+  date: primitive(),
+  publisher: primitive(),
+  contact: contact(),
+  description: primitive(),
+  jurisdiction: concept(true),
+  purpose: primitive(),
+  copyright: primitive(),
+  useContext: group({ code: concept(), value: choice() }),
+};
+
+/** Canonical resources that are also versioned artefacts under review. */
+export const reviewed: Readonly<Record<string, FieldSpec>> = {
+  approvalDate: primitive(),
+  lastReviewDate: primitive(),
+  effectivePeriod: period(),
+  topic: concept(true),
+};
+
+/**
+ * Authorship roles the evidence and definitional artefacts share, all
+ * ContactDetail rather than References.
+ */
+export const authored: Readonly<Record<string, FieldSpec>> = {
+  author: contact(),
+  editor: contact(),
+  reviewer: contact(),
+  endorser: contact(),
+};
+
+/**
  * Reads `text` off a normalized field, taking the first entry of a list.
  * Group fields have no `text` of their own and yield `null`.
  */
@@ -33,6 +75,30 @@ export const textOf = (fields: SimplifiedFields, key: string): string | null => 
   const field = fields[key];
   const value = Array.isArray(field) ? field[0] : field;
   const text: unknown = (value as { text?: unknown } | undefined)?.text;
+
+  return typeof text === 'string' ? text : null;
+};
+
+/**
+ * Reads `text` from a field nested inside the first entry of a group.
+ *
+ * A resource whose human name lives in a backbone element — a
+ * MedicinalProductDefinition's `name[0].productName`, say — has nothing at the
+ * top level for `textOf` to find, so its label would otherwise be just a
+ * status code.
+ */
+export const nestedTextOf = (
+  fields: SimplifiedFields,
+  key: string,
+  nested: string,
+): string | null => {
+  const field = fields[key];
+  const [first] = Array.isArray(field) ? field : [];
+  if (first === undefined) return null;
+
+  const value = (first as SimplifiedFields)[nested];
+  const target = Array.isArray(value) ? value[0] : value;
+  const text: unknown = (target as { text?: unknown } | undefined)?.text;
 
   return typeof text === 'string' ? text : null;
 };
