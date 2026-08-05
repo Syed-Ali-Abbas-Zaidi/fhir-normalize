@@ -60,18 +60,43 @@ try {
 
     for (const element of definition.snapshot?.element ?? []) {
       const parts = element.path.split('.');
-      if (parts.length !== 2) continue; // top-level elements only
 
-      const [, raw] = parts;
+      // Top-level elements, plus one level inside a backbone so a generated
+      // `group` has something to declare. Deeper nesting is left generic.
+      if (parts.length < 2 || parts.length > 3) continue;
+
+      const raw = parts.at(-1);
       if (INHERITED.has(raw)) continue;
 
       const choice = raw.endsWith('[x]');
-      fields[choice ? raw.slice(0, -3) : raw] = {
+      const entry = {
         types: (element.type ?? []).map((type) => type.code),
         list: element.max === '*',
         choice,
         required: (element.min ?? 0) > 0,
       };
+
+      // A few elements carry no type of their own and point at another
+      // element's definition instead — `ClaimResponse.adjudication` reuses
+      // `ClaimResponse.item.adjudication`. Recorded so they read as backbones
+      // rather than as untyped.
+      if (element.contentReference !== undefined) {
+        entry.contentReference = element.contentReference.replace(/^#/, '');
+      }
+
+      const name = choice ? raw.slice(0, -3) : raw;
+
+      if (parts.length === 2) {
+        fields[name] = entry;
+        continue;
+      }
+
+      // A child: hang it off its parent, which the snapshot always lists first.
+      const parent = fields[parts[1]];
+      if (parent === undefined) continue;
+
+      parent.fields ??= {};
+      parent.fields[name] = entry;
     }
 
     digest[definition.name] = fields;

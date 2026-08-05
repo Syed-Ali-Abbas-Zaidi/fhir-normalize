@@ -28,7 +28,7 @@ import type { Bundle, FhirResource } from 'fhir-normalize';
 
 ## Status
 
-`1.9.0`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform`, and the `Normalizer`
+`1.10.0`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform`, and the `Normalizer`
 methods — is stable under semver; anything breaking lands in a major.
 
 | Format | Status |
@@ -79,7 +79,10 @@ The 147 resource shape tables are the bulk of the library, and they only ship if
 | What you import | Library code |
 | --- | --- |
 | parsing only | ~15 KB |
-| parsing + the simplified view | ~48 KB |
+| parsing + the simplified view | ~77 KB |
+
+The simplified view grew in 1.10.0, when the tables went from partial to complete coverage of every
+element of every resource they shape. Parsing-only bundles are unaffected.
 
 `fast-xml-parser` adds about 62 KB on top and is linked by any root import, because
 `createDefaultNormalizer` registers both parsers. There is no way to avoid it today short of not
@@ -213,6 +216,10 @@ their choice elements resolved; they simply have no curated field ordering.
 
 Resource types renamed across releases resolve through an alias, so `DeviceUsage` (R5) and
 `DeviceAssociation` (R6) both land on the R4 `DeviceUseStatement` shape.
+
+**Every element of every shaped resource is declared** — all 2,302 of them, asserted against the
+spec digest. So `unmapped` is now a real signal: on a conforming R4 resource it is empty, and
+anything in it is an extension, a field from another release, or a typo.
 
 **Nothing is dropped.** An element a shape does not declare is still read — with a generic
 reading rather than a curated one — and its name is reported in `unmapped`. An incomplete shape
