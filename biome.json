@@ -8,7 +8,7 @@
       "!**/coverage",
       "!**/.next",
       "!**/next-env.d.ts",
-      "!**/spec/r4-elements.json"
+      "!**/spec/*.json"
     ]
   },
   "formatter": {

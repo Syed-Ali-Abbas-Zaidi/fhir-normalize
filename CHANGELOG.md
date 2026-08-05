@@ -5,6 +5,39 @@ All notable changes to `fhir-normalize`.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.1] — 2026-08-05
+
+No behaviour change. The cross-version migration table is now verified rather than trusted, and the
+documentation states its real coverage.
+
+### Added
+
+- **`VERSION_MIGRATION` is checked against the STU3, R4 and R5 definitions.** This table rewrites
+  clinical data rather than describing it, so a wrong row corrupts a payload silently — it carries
+  more risk than the shape tables and had the same provenance. The suite now verifies that every
+  migrated field exists in the release it claims, that every target exists in R4, and that no
+  unguarded marker is a key a genuine R4 payload could carry. That last one is the property the
+  design rests on: migration fires on a marker field because FHIR resources do not record their
+  release, so a marker that also exists in R4 would rewrite valid R4 data.
+
+  **All 16 rows and the one resource rename pass.** `Encounter.class` and
+  `MedicationRequest.requester` already carry the `applies` guards they need.
+
+- `spec/stu3-keys.json` and `spec/r5-keys.json`, generated alongside the R4 digest by
+  `scripts/fetch-r4-spec.mjs`. Committed, and excluded from the published package.
+
+### Documentation
+
+- **The README overstated cross-version support.** It said the canonical shape "holds across
+  releases"; measured, the table covers 14 of 794 element differences. 181 STU3 and 599 R5 elements
+  are passed through untouched, so a bundle typed as R4 can carry fields that are not R4, and
+  nothing in `meta.warnings` says so. The real numbers are now in the README, and the status table
+  reads ⚠️ Partial rather than ✅ Supported.
+- Documented a known gap in the simplified view: a choice element's type suffix is not checked
+  against the types R4 permits, so eight STU3/R5 combinations — `Consent.sourceIdentifier`,
+  `Observation.valueReference` among them — are presented as conformant. Pure R4 input is
+  unaffected.
+
 ## [1.10.0] — 2026-08-05
 
 ### Added
