@@ -24,6 +24,7 @@ type SpecElement = {
   readonly list: boolean;
   readonly choice: boolean;
   readonly required: boolean;
+  readonly fields?: Record<string, SpecElement>;
 };
 
 const spec: Record<string, Record<string, SpecElement>> = R4_ELEMENTS;
@@ -111,6 +112,15 @@ const NON_R4_SHAPE: ReadonlySet<string> = new Set([
   'SubstanceDefinition',
 ]);
 
+/**
+ * Above this many permitted types, a choice is one of R4's *open* ones —
+ * `Parameters.parameter.value[x]` and `Task.input/output.value[x]` take the
+ * whole datatype list. Listing ~50 types would bloat the tables to rule out
+ * almost nothing, so those are left to accept any known suffix. Every other
+ * choice in R4 permits six or fewer.
+ */
+const OPEN_CHOICE = 20;
+
 /** Every (resourceType, field, spec) triple a shape declares for an R4 type. */
 const declarations = Object.entries(RESOURCE_SHAPE)
   .filter(([resourceType]) => !NON_R4_SHAPE.has(resourceType))
@@ -192,6 +202,45 @@ describe('shape tables conform to R4', () => {
     });
 
     expect(undeclared).toEqual([]);
+  });
+
+  it('declares the permitted types on every choice R4 knows about', () => {
+    // Without them a choice accepts any type suffix, so a payload from another
+    // release lands on the field and is presented as conformant — R5
+    // `Observation.valueReference` read as an R4 `value`.
+    /** True when this choice ought to declare its types but does not. */
+    const isBare = (fieldSpec: FieldSpec, element: SpecElement): boolean =>
+      fieldSpec.kind === FIELD_KIND.CHOICE &&
+      fieldSpec.types === undefined &&
+      element.choice &&
+      element.types.length > 0 &&
+      element.types.length <= OPEN_CHOICE;
+
+    const walk = (
+      declared: Readonly<Record<string, FieldSpec>>,
+      elements: Record<string, SpecElement>,
+      path: string,
+    ): string[] =>
+      Object.entries(declared).flatMap(([field, fieldSpec]) => {
+        const element = elements[field];
+        if (element === undefined) return [];
+
+        if (fieldSpec.kind === FIELD_KIND.GROUP && fieldSpec.fields !== undefined) {
+          return walk(fieldSpec.fields, element.fields ?? {}, `${path}.${field}`);
+        }
+
+        return isBare(fieldSpec, element)
+          ? [`${path}.${field} (R4 permits ${element.types.join(', ')})`]
+          : [];
+      });
+
+    const bare = Object.entries(RESOURCE_SHAPE)
+      .filter(([resourceType]) => !NON_R4_SHAPE.has(resourceType))
+      .flatMap(([resourceType, shape]) =>
+        walk(shape.fields, spec[resourceType] ?? {}, resourceType),
+      );
+
+    expect(bare).toEqual([]);
   });
 
   it('covers every R4 resource except the documented exclusions', () => {

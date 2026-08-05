@@ -5,6 +5,39 @@ All notable changes to `fhir-normalize`.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.11.0] — 2026-08-05
+
+### Fixed
+
+- **A choice element accepted any type suffix, including ones R4 does not permit.** A choice is
+  resolved from the type encoded in the element name, and that suffix was never checked against the
+  element's allowed types. So STU3 `Consent.sourceIdentifier` landed on `source` and R5
+  `Observation.valueReference` landed on `value` — presented as conformant R4 when R4 allows neither
+  — and `unmapped` stayed empty, so nothing flagged it.
+
+  Every choice now declares the types R4 permits, and a suffix outside them is reported in
+  `unmapped` instead. Eight STU3/R5 combinations are affected, on `ConceptMap`, `Condition`,
+  `Consent`, `Observation`, `ActivityDefinition`, `PlanDefinition` and `MessageHeader`.
+
+  **This changes behaviour for cross-version input.** If you parse R5 and read
+  `fields.value` on an `Observation` carrying `valueReference`, it now appears in `unmapped`
+  rather than as a value. That is the point: R4 has nowhere to put it. Pure R4 input is unaffected.
+
+### Added
+
+- `FieldSpec.types` — the FHIR type names a choice accepts. `resolveChoice` and `choiceKeys` take an
+  optional `permitted` list to match. Absent means "any known type", which is what a resource with
+  no declared shape still gets.
+- The conformance suite fails if a choice R4 knows about does not declare its permitted types.
+  R4's *open* choices — `Parameters.parameter.value[x]` and `Task.input`/`output.value[x]`, which
+  take the whole datatype list — are exempt, since enumerating ~50 types rules out almost nothing.
+
+### Notes
+
+- The simplified view grows from ~77 KB to ~81 KB. Parsing-only bundles stay at ~15 KB.
+- This also found that the coverage suite had been probing every choice with a `String` suffix,
+  including elements where R4 permits no string. Those probes now use a type the element allows.
+
 ## [1.10.1] — 2026-08-05
 
 No behaviour change. The cross-version migration table is now verified rather than trusted, and the

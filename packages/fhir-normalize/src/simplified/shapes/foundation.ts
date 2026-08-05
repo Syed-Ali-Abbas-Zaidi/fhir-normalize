@@ -134,7 +134,7 @@ export const FOUNDATION_SHAPE: Readonly<Record<string, ResourceShape>> = {
       replaces: primitive(true),
       base: primitive(),
       parent: primitive(true),
-      event: choice(),
+      event: choice(['Coding', 'uri']),
       category: primitive(),
       responseRequired: primitive(),
       focus: group({ code: primitive(), profile: primitive(), min: primitive(), max: primitive() }),
@@ -219,8 +219,8 @@ export const FOUNDATION_SHAPE: Readonly<Record<string, ResourceShape>> = {
       ...canonical,
       // R4 allows one identifier here, unlike most canonical resources.
       identifier: identifier(false),
-      source: choice(),
-      target: choice(),
+      source: choice(['uri', 'canonical']),
+      target: choice(['uri', 'canonical']),
       group: group({ source: primitive(), target: primitive() }),
     },
     display: statusDisplay('title'),
@@ -280,7 +280,7 @@ export const FOUNDATION_SHAPE: Readonly<Record<string, ResourceShape>> = {
   Provenance: {
     fields: {
       target: reference(true),
-      occurred: choice(),
+      occurred: choice(['Period', 'dateTime']),
       recorded: primitive(),
       policy: primitive(true),
       location: reference(),
@@ -332,7 +332,7 @@ export const FOUNDATION_SHAPE: Readonly<Record<string, ResourceShape>> = {
       dateTime: primitive(),
       performer: reference(true),
       organization: reference(true),
-      source: choice(),
+      source: choice(['Attachment', 'Reference']),
       policyRule: concept(),
       policy: group({ authority: primitive(), uri: primitive() }),
       verification: group({
@@ -360,7 +360,7 @@ export const FOUNDATION_SHAPE: Readonly<Record<string, ResourceShape>> = {
       confidentiality: primitive(),
       custodian: reference(),
       attester: group({ mode: primitive(), time: primitive(), party: reference() }),
-      relatesTo: group({ code: primitive(), target: choice() }),
+      relatesTo: group({ code: primitive(), target: choice(['Identifier', 'Reference']) }),
       event: group({ code: concept(true), period: period(), detail: reference(true) }),
       section: group({
         title: primitive(),
@@ -472,7 +472,7 @@ export const FOUNDATION_SHAPE: Readonly<Record<string, ResourceShape>> = {
 
   MessageHeader: {
     fields: {
-      event: choice(),
+      event: choice(['Coding', 'uri']),
       sender: reference(),
       enterer: reference(),
       author: reference(),

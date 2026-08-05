@@ -153,6 +153,17 @@ export interface FieldSpec {
   list?: boolean;
   /** Nested specs for a `GROUP` — a backbone element such as `Observation.component`. */
   fields?: Readonly<Record<string, FieldSpec>>;
+  /**
+   * For a `CHOICE`, the FHIR type names R4 allows — `['Quantity', 'string', …]`.
+   *
+   * A choice is resolved from the type suffix on the element name, so without
+   * this any suffix is accepted: R5 `Observation.valueReference` would land on
+   * `value` even though R4 permits no Reference there, and be presented as
+   * conformant. When present, a suffix outside this list is left for
+   * `unmapped` instead. Absent means "accept any known type", which is what a
+   * resource with no declared shape gets.
+   */
+  types?: readonly string[];
 }
 
 export interface ResourceShape {

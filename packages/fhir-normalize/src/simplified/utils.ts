@@ -57,8 +57,10 @@ const readField = (
   consumed: string[];
 } | null => {
   if (spec.kind === FIELD_KIND.CHOICE) {
-    const resolved = resolveChoice(record, name);
-    return resolved === null ? null : { value: resolved.value, consumed: choiceKeys(record, name) };
+    const resolved = resolveChoice(record, name, spec.types);
+    return resolved === null
+      ? null
+      : { value: resolved.value, consumed: choiceKeys(record, name, spec.types) };
   }
 
   const raw = record[name];
