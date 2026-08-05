@@ -15,7 +15,12 @@ export const period = (list = false) => spec(FIELD_KIND.PERIOD, list);
 export const name = (list = true) => spec(FIELD_KIND.NAME, list);
 export const contact = (list = true) => spec(FIELD_KIND.CONTACT, list);
 export const address = (list = true) => spec(FIELD_KIND.ADDRESS, list);
-export const choice = () => spec(FIELD_KIND.CHOICE);
+/**
+ * A `value[x]`-style element. `types` are the FHIR type names R4 permits;
+ * a suffix outside them is left for `unmapped` rather than read as this field.
+ */
+export const choice = (types?: readonly string[]): FieldSpec =>
+  types === undefined ? { kind: FIELD_KIND.CHOICE } : { kind: FIELD_KIND.CHOICE, types };
 export const annotation = (list = true) => spec(FIELD_KIND.ANNOTATION, list);
 
 /** A backbone element, with its own nested specs. */

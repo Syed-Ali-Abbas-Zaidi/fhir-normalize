@@ -58,6 +58,21 @@ describe('resolveChoice', () => {
     expect(resolveChoice({ valueSet: 'http://example.org/vs' }, 'value')).toBeNull();
   });
 
+  it('rejects a type the element does not permit', () => {
+    const permitted = ['Quantity', 'CodeableConcept', 'string'];
+
+    expect(resolveChoice({ valueQuantity: { value: 1 } }, 'value', permitted)).not.toBeNull();
+    expect(resolveChoice({ valueReference: { reference: 'X/1' } }, 'value', permitted)).toBeNull();
+  });
+
+  it('matches a primitive type whatever case the spec writes it in', () => {
+    // The spec says `string` and `dateTime`; payloads say `valueString`.
+    expect(resolveChoice({ valueString: 'x' }, 'value', ['string'])?.value.text).toBe('x');
+    expect(resolveChoice({ valueDateTime: '2026-01-01' }, 'value', ['dateTime'])?.sourceKey).toBe(
+      'valueDateTime',
+    );
+  });
+
   it('prefers a non-suffixed element of the same name', () => {
     expect(resolveChoice({ value: 'plain' }, 'value')?.sourceKey).toBe('value');
   });
@@ -216,6 +231,27 @@ describe('simplifyResource — nothing disappears quietly', () => {
 
     expect(unmapped).toEqual([]);
   });
+
+  it.each([
+    ['Consent', 'sourceIdentifier', 'source'],
+    ['Observation', 'valueReference', 'value'],
+    ['Condition', 'abatementBoolean', 'abatement'],
+    ['MessageHeader', 'eventCanonical', 'event'],
+    ['PlanDefinition', 'subjectCanonical', 'subject'],
+  ])(
+    'reports %s.%s as unmapped rather than reading it as R4 "%s"',
+    (resourceType, sourceKey, base) => {
+      // These come from STU3 or R5, where the element permits a type R4 does
+      // not. Resolving on the suffix alone would present them as conformant.
+      const { fields, unmapped } = simplifyResource({
+        resourceType,
+        [sourceKey]: { reference: 'X/1', value: 'v', display: 'd' },
+      });
+
+      expect(Object.keys(fields)).not.toContain(base);
+      expect(unmapped).toContain(sourceKey);
+    },
+  );
 
   it('still resolves choices for a resource type with no declared shape', () => {
     const { fields, resourceType } = simplifyResource({

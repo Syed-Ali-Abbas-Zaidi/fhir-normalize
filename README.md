@@ -28,7 +28,7 @@ import type { Bundle, FhirResource } from 'fhir-normalize';
 
 ## Status
 
-`1.10.1`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform`, and the `Normalizer`
+`1.11.0`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform`, and the `Normalizer`
 methods — is stable under semver; anything breaking lands in a major.
 
 | Format | Status |
@@ -79,10 +79,11 @@ The 147 resource shape tables are the bulk of the library, and they only ship if
 | What you import | Library code |
 | --- | --- |
 | parsing only | ~15 KB |
-| parsing + the simplified view | ~77 KB |
+| parsing + the simplified view | ~81 KB |
 
 The simplified view grew in 1.10.0, when the tables went from partial to complete coverage of every
-element of every resource they shape. Parsing-only bundles are unaffected.
+element of every resource they shape, and again in 1.11.0 with the permitted types on each choice.
+Parsing-only bundles are unaffected.
 
 `fast-xml-parser` adds about 62 KB on top and is linked by any root import, because
 `createDefaultNormalizer` registers both parsers. There is no way to avoid it today short of not
@@ -166,13 +167,9 @@ that is not an element of the resource in R4 — see [the simplified view](#one-
 
 Inspect or extend the table via the exported `VERSION_MIGRATION`.
 
-> [!NOTE]
-> **A known gap in the simplified view for cross-version input.** A choice element is resolved from
-> its type suffix, and the suffix is not checked against the types R4 permits for that element. So
-> STU3 `Consent.sourceIdentifier` lands on `source` and R5 `Observation.valueReference` lands on
-> `value`, presented as conformant when R4 allows neither — and `unmapped` stays empty. Eight such
-> combinations exist across STU3 and R5, on `ConceptMap`, `Condition`, `Consent`, `Observation`,
-> `ActivityDefinition`, `PlanDefinition` and `MessageHeader`. Pure R4 input is unaffected.
+Fields it passes through are still visible in the simplified view: a choice element only accepts a
+type R4 permits, so STU3 `Consent.sourceIdentifier` and R5 `Observation.valueReference` are reported
+in `unmapped` rather than presented as a conformant `source` or `value`.
 
 To keep the source release intact, assemble a normalizer without the stage:
 

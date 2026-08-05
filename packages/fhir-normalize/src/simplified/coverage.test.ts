@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { FIELD_KIND } from './constants';
+import { FIELD_KIND, TYPE_SUFFIX_KIND } from './constants';
 import { listShapes } from './describe';
 import { CLINICAL_SHAPE, shapeFor } from './shapes';
 import type { FieldSpec } from './types';
 import { simplifyResource } from './utils';
+
+const capitalize = (value: string): string => `${value.slice(0, 1).toUpperCase()}${value.slice(1)}`;
 
 /**
  * The Clinical section of the FHIR resource list, transcribed from
@@ -362,16 +364,27 @@ describe('every declared shape survives real input', () => {
 
   it.each(listShapes())('%s resolves its choice elements when present', (resourceType) => {
     const shape = shapeFor(resourceType);
-    const choices = Object.entries(shape?.fields ?? {})
-      .filter(([, spec]) => spec.kind === FIELD_KIND.CHOICE)
-      .map(([name]) => name);
+    const choices = Object.entries(shape?.fields ?? {}).filter(
+      ([, spec]) => spec.kind === FIELD_KIND.CHOICE,
+    );
+
+    /**
+     * The serialized suffix to probe with. A choice that declares its permitted
+     * types only accepts one of them, so probing every element with `String`
+     * would test a payload R4 does not allow — `ActivityDefinition.subject` is
+     * CodeableConcept or Reference and never a string.
+     */
+    const suffixFor = (spec: FieldSpec): string => {
+      const usable = spec.types?.find((type) => TYPE_SUFFIX_KIND[capitalize(type)] !== undefined);
+      return capitalize(usable ?? 'string');
+    };
 
     const resource: Record<string, unknown> = { resourceType };
-    for (const name of choices) resource[`${name}String`] = 'sample';
+    for (const [name, spec] of choices) resource[`${name}${suffixFor(spec)}`] = 'sample';
 
     const { fields } = simplifyResource(resource);
 
-    for (const name of choices) {
+    for (const [name] of choices) {
       expect(Object.keys(fields), `${resourceType}.${name}`).toContain(name);
     }
   });
