@@ -1,6 +1,7 @@
-import type { FieldSpec, ResourceShape } from '../types';
+import type { ResourceShape } from '../types';
 import {
   annotation,
+  canonical,
   choice,
   concept,
   contact,
@@ -10,40 +11,10 @@ import {
   period,
   primitive,
   reference,
+  reviewed,
   statusDisplay,
   textOf,
 } from './helpers';
-
-/**
- * The metadata block every canonical resource carries — conformance and
- * terminology resources are almost entirely made of it. Declared once so the
- * fifteen resources that share it cannot drift apart.
- */
-const canonical: Readonly<Record<string, FieldSpec>> = {
-  url: primitive(),
-  identifier: identifier(),
-  version: primitive(),
-  name: primitive(),
-  title: primitive(),
-  status: primitive(),
-  experimental: primitive(),
-  date: primitive(),
-  publisher: primitive(),
-  contact: contact(),
-  description: primitive(),
-  jurisdiction: concept(true),
-  purpose: primitive(),
-  copyright: primitive(),
-  useContext: group({ code: concept(), value: choice() }),
-};
-
-/** Canonical resources that are also versioned artefacts under review. */
-const reviewed: Readonly<Record<string, FieldSpec>> = {
-  approvalDate: primitive(),
-  lastReviewDate: primitive(),
-  effectivePeriod: period(),
-  topic: concept(true),
-};
 
 /**
  * Every resource in the Foundation section of the FHIR resource list —

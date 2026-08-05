@@ -9,6 +9,7 @@ export {
   FINANCIAL_SHAPE,
   FOUNDATION_SHAPE,
   RESOURCE_SHAPE,
+  SPECIALIZED_SHAPE,
   shapeFor,
 } from './shapes';
 export type {

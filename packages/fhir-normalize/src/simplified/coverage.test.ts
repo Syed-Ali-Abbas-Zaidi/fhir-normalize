@@ -236,6 +236,68 @@ describe('Foundation section coverage', () => {
   });
 });
 
+/**
+ * The Specialized section, transcribed from the same page on 2026-08-05.
+ * `DeviceDefinition` and `ExampleScenario` are listed here by the build but
+ * have their shapes under Base and Foundation.
+ */
+const SPECIALIZED_SECTION = {
+  'Public Health & Research': ['ResearchStudy', 'ResearchSubject'],
+  'Definitional Artifacts': [
+    'ActivityDefinition',
+    'DeviceDefinition',
+    'EventDefinition',
+    'ObservationDefinition',
+    'PlanDefinition',
+    'Questionnaire',
+    'SpecimenDefinition',
+    'ExampleScenario',
+    'ActorDefinition',
+    'Requirements',
+  ],
+  'Evidence-Based Medicine': ['ArtifactAssessment', 'Evidence', 'EvidenceVariable'],
+  'Quality Reporting & Testing': ['Measure', 'MeasureReport'],
+  'Medication Definition': [
+    'MedicinalProductDefinition',
+    'PackagedProductDefinition',
+    'AdministrableProductDefinition',
+    'ManufacturedItemDefinition',
+    'Ingredient',
+    'ClinicalUseDefinition',
+    'RegulatedAuthorization',
+    'SubstanceDefinition',
+  ],
+} as const;
+
+/** R4 members of the Specialized modules the current build dropped or moved. */
+const SPECIALIZED_R4_ONLY = [
+  'TestScript',
+  'TestReport',
+  'ResearchDefinition',
+  'ResearchElementDefinition',
+  'EffectEvidenceSynthesis',
+  'RiskEvidenceSynthesis',
+] as const;
+
+describe('Specialized section coverage', () => {
+  for (const [section, resources] of Object.entries(SPECIALIZED_SECTION)) {
+    it.each(resources)(`${section}: %s has a shape`, (resourceType) => {
+      expect(shapeFor(resourceType)).toBeDefined();
+    });
+  }
+
+  it.each(SPECIALIZED_R4_ONLY)('R4-only: %s has a shape', (resourceType) => {
+    expect(shapeFor(resourceType)).toBeDefined();
+  });
+
+  it('covers every listed resource with no gaps', () => {
+    const listed = [...Object.values(SPECIALIZED_SECTION).flat(), ...SPECIALIZED_R4_ONLY];
+    const missing = listed.filter((resourceType) => shapeFor(resourceType) === undefined);
+
+    expect(missing).toEqual([]);
+  });
+});
+
 describe('every declared shape survives real input', () => {
   /**
    * Builds a resource that exercises the shape: one plausible value per

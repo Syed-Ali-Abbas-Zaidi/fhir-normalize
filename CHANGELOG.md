@@ -5,6 +5,30 @@ All notable changes to `fhir-normalize`.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0] — 2026-08-05
+
+### Added
+
+- **The whole Specialized section** of the FHIR resource list — Public Health & Research,
+  Definitional Artifacts, Evidence-Based Medicine, Quality Reporting & Testing, and Medication
+  Definition — plus the R4 members the current build dropped: `TestScript`, `TestReport`,
+  `ResearchDefinition`, `ResearchElementDefinition`, `EffectEvidenceSynthesis`, and
+  `RiskEvidenceSynthesis`. 29 new shapes, 144 in total. **Every section of the resource list is now
+  covered in full.**
+
+### Fixed
+
+- **A resource whose name lives in a backbone element had an uninformative label.**
+  `MedicinalProductDefinition` and `SubstanceDefinition` read as a bare status code, because the
+  label builder could only see top-level fields.
+
+### Notes
+
+- R4's `MedicinalProduct*` and `Substance*` families are deliberately not declared. R5 replaced them
+  wholesale with the `*Definition` resources that are covered, and carrying both would double a
+  large, rarely-used surface for a modelling approach the spec has abandoned. They still parse and
+  still get their choice elements resolved.
+
 ## [1.7.0] — 2026-08-04
 
 ### Added
@@ -157,6 +181,7 @@ package page without a new version, so this exists to get the install instructio
   only for input that cannot be read at all.
 - Dual ESM + CJS output with generated type declarations.
 
+[1.8.0]: https://github.com/Syed-Ali-Abbas-Zaidi/fhir-normalize/releases/tag/v1.8.0
 [1.7.0]: https://github.com/Syed-Ali-Abbas-Zaidi/fhir-normalize/releases/tag/v1.7.0
 [1.6.0]: https://github.com/Syed-Ali-Abbas-Zaidi/fhir-normalize/releases/tag/v1.6.0
 [1.5.1]: https://github.com/Syed-Ali-Abbas-Zaidi/fhir-normalize/releases/tag/v1.5.1
