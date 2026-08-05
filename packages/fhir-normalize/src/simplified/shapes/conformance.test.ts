@@ -177,6 +177,23 @@ describe('shape tables conform to R4', () => {
     expect(missing).toEqual([]);
   });
 
+  it('declares every element of every resource it shapes', () => {
+    // Not just the mandatory ones. An undeclared element still reaches the
+    // caller — read generically and reported in `unmapped` — but it gets no
+    // curated reading, and `describeShape` does not mention it. Since the
+    // shapes claim to describe a resource, describing part of one is a gap.
+    const undeclared = Object.entries(spec).flatMap(([resourceType, fields]) => {
+      const declared = RESOURCE_SHAPE[resourceType]?.fields;
+      if (declared === undefined) return [];
+
+      return Object.keys(fields)
+        .filter((field) => !(field in declared))
+        .map((field) => `${resourceType}.${field}`);
+    });
+
+    expect(undeclared).toEqual([]);
+  });
+
   it('covers every R4 resource except the documented exclusions', () => {
     // R5 replaced these wholesale with the `*Definition` resources, which are
     // covered instead. See the note in `specialized.ts`.

@@ -8,15 +8,15 @@ export const concept = (list = false) => spec(FIELD_KIND.CONCEPT, list);
 export const reference = (list = false) => spec(FIELD_KIND.REFERENCE, list);
 export const primitive = (list = false) => spec(FIELD_KIND.PRIMITIVE, list);
 export const identifier = (list = true) => spec(FIELD_KIND.IDENTIFIER, list);
-export const quantity = () => spec(FIELD_KIND.QUANTITY);
-export const ratio = () => spec(FIELD_KIND.RATIO);
-export const range = () => spec(FIELD_KIND.RANGE);
-export const period = () => spec(FIELD_KIND.PERIOD);
+export const quantity = (list = false) => spec(FIELD_KIND.QUANTITY, list);
+export const ratio = (list = false) => spec(FIELD_KIND.RATIO, list);
+export const range = (list = false) => spec(FIELD_KIND.RANGE, list);
+export const period = (list = false) => spec(FIELD_KIND.PERIOD, list);
 export const name = (list = true) => spec(FIELD_KIND.NAME, list);
 export const contact = (list = true) => spec(FIELD_KIND.CONTACT, list);
 export const address = (list = true) => spec(FIELD_KIND.ADDRESS, list);
 export const choice = () => spec(FIELD_KIND.CHOICE);
-export const annotation = () => spec(FIELD_KIND.ANNOTATION, true);
+export const annotation = (list = true) => spec(FIELD_KIND.ANNOTATION, list);
 
 /** A backbone element, with its own nested specs. */
 export const group = (fields: Readonly<Record<string, FieldSpec>>, list = true): FieldSpec => ({
@@ -72,19 +72,44 @@ export const reviewed: Readonly<Record<string, FieldSpec>> = {
   topic: concept(true),
 };
 
-/**
- * A RelatedArtifact — the citation/documentation block the definitional and
- * evidence resources hang off `relatedArtifact`. A complex datatype rather
- * than a backbone, but it reads the same way.
- */
-export const relatedArtifactGroup: FieldSpec = group({
-  type: primitive(),
-  label: primitive(),
-  display: primitive(),
-  citation: primitive(),
-  url: primitive(),
-  resource: primitive(),
-});
+// Complex datatypes that are not backbone elements but read the same way — a
+// fixed set of sub-elements with no `text` rendering of their own. Declared
+// once here because they recur across sections.
+
+/** The citation/documentation block hung off `relatedArtifact`. */
+export const relatedArtifact = (list = true) =>
+  group(
+    {
+      type: primitive(),
+      label: primitive(),
+      display: primitive(),
+      citation: primitive(),
+      url: primitive(),
+      resource: primitive(),
+    },
+    list,
+  );
+
+/** Binary content — a photo, a PDF report, a library's source. */
+export const attachment = (list = false) =>
+  group(
+    {
+      contentType: primitive(),
+      language: primitive(),
+      url: primitive(),
+      size: primitive(),
+      title: primitive(),
+      creation: primitive(),
+    },
+    list,
+  );
+
+/** The context an artefact applies in — `useContext` on canonical resources. */
+export const usageContext = (list = true) => group({ code: concept(), value: choice() }, list);
+
+/** What data a library or guidance response needs. */
+export const dataRequirement = (list = true) =>
+  group({ type: primitive(), profile: primitive(true), mustSupport: primitive(true) }, list);
 
 /**
  * Authorship roles the evidence and definitional artefacts share, all

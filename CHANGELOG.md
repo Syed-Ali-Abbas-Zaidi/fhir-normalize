@@ -5,6 +5,37 @@ All notable changes to `fhir-normalize`.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.0] — 2026-08-05
+
+### Added
+
+- **Every element of every shaped resource is now declared** — 234 that were missing, across 71
+  resources, generated from the spec digest and checked by the conformance suite. `Immunization`
+  gains `reaction`, `programEligibility` and `fundingSource`; `ExplanationOfBenefit` gains
+  `procedure`, `prescription` and `preAuthRef`; `MedicationKnowledge`, `DeviceDefinition`, `Contract`
+  and `Task` gain ten or more each. Coverage of the resources the tables shape is 2,302 / 2,302.
+- **The conformance suite now fails on any undeclared element**, not just a mandatory one.
+- Shared readings for the complex datatypes that recur across sections — `relatedArtifact`,
+  `attachment`, `usageContext`, `dataRequirement` — and list variants of `quantity`, `ratio`,
+  `range`, `period` and `annotation`.
+- The spec digest now records one level inside each backbone element, so a generated `group`
+  declares real children rather than an empty object.
+
+### Fixed
+
+- **`unmapped` was suppressing sixteen real elements.** `COMMON_ELEMENT` held `basedOn`, `partOf`,
+  `insurance`, `instantiatesCanonical` and a dozen more on the reasoning that they were definitional
+  plumbing. They are ordinary elements of particular resources — `basedOn` alone belongs to 20 R4
+  resources and was undeclared on six — so suppressing them globally switched off the safety net for
+  exactly the fields most likely to be missing. The set is now only what `Resource` and
+  `DomainResource` define. On a conforming R4 resource `unmapped` is empty, which makes anything in
+  it meaningful.
+
+### Notes
+
+- The simplified view grew from ~48 KB to ~77 KB of library code, the cost of complete coverage.
+  **Parsing-only bundles are unchanged at ~15 KB** — verified with a real bundler, not asserted.
+
 ## [1.9.0] — 2026-08-05
 
 ### Added

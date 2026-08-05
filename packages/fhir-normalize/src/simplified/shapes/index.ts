@@ -32,8 +32,15 @@ export const shapeFor = (resourceType: string): ResourceShape | undefined =>
   RESOURCE_SHAPE[resourceType] ?? RESOURCE_SHAPE[CLINICAL_ALIAS[resourceType] ?? ''];
 
 /**
- * Elements every resource may carry. Excluded from `unmapped` so plumbing does
- * not read as a coverage gap.
+ * Elements every resource may carry, from `Resource` and `DomainResource`.
+ * Excluded from `unmapped` so plumbing does not read as a coverage gap.
+ *
+ * Nothing else belongs here. This set used to also hold `basedOn`, `partOf`,
+ * `insurance` and a dozen others, on the reasoning that they were definitional
+ * plumbing — but they are ordinary elements of particular resources, and
+ * suppressing them globally switched off `unmapped` for exactly the fields
+ * most likely to be missing. `basedOn` alone is an element of 20 R4 resources
+ * and was undeclared on six of them, reported by nothing.
  */
 export const COMMON_ELEMENT: ReadonlySet<string> = new Set([
   'resourceType',
@@ -45,21 +52,4 @@ export const COMMON_ELEMENT: ReadonlySet<string> = new Set([
   'contained',
   'extension',
   'modifierExtension',
-  // Definition-level plumbing that appears across request/event resources.
-  'instantiatesCanonical',
-  'instantiatesUri',
-  'instantiates',
-  'groupIdentifier',
-  'eventHistory',
-  'relevantHistory',
-  'supportingInformation',
-  'supportingInfo',
-  'insurance',
-  'partOf',
-  'basedOn',
-  'detectedIssue',
-  'protocol',
-  'investigation',
-  'parameter',
-  'subjectType',
 ]);

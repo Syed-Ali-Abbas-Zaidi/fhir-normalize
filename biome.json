@@ -8,7 +8,6 @@
       "!**/coverage",
       "!**/.next",
       "!**/next-env.d.ts",
-      "!prototype",
       "!**/spec/r4-elements.json"
     ]
   },
