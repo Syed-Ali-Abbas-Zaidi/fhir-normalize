@@ -1,6 +1,5 @@
 import type { ResourceShape } from '../types';
 import {
-  annotation,
   canonical,
   choice,
   concept,
@@ -14,6 +13,7 @@ import {
   reviewed,
   statusDisplay,
   textOf,
+  without,
 } from './helpers';
 
 /**
@@ -31,7 +31,7 @@ export const FOUNDATION_SHAPE: Readonly<Record<string, ResourceShape>> = {
   // -------------------------------------------------------- Conformance ----
   CapabilityStatement: {
     fields: {
-      ...canonical,
+      ...without(canonical, 'identifier'),
       kind: primitive(),
       instantiates: primitive(true),
       imports: primitive(true),
@@ -68,7 +68,7 @@ export const FOUNDATION_SHAPE: Readonly<Record<string, ResourceShape>> = {
 
   ImplementationGuide: {
     fields: {
-      ...canonical,
+      ...without(canonical, 'identifier', 'purpose'),
       packageId: primitive(),
       license: primitive(),
       fhirVersion: primitive(true),
@@ -80,7 +80,7 @@ export const FOUNDATION_SHAPE: Readonly<Record<string, ResourceShape>> = {
 
   SearchParameter: {
     fields: {
-      ...canonical,
+      ...without(canonical, 'identifier', 'title', 'copyright'),
       derivedFrom: primitive(),
       code: primitive(),
       base: primitive(true),
@@ -116,7 +116,7 @@ export const FOUNDATION_SHAPE: Readonly<Record<string, ResourceShape>> = {
 
   OperationDefinition: {
     fields: {
-      ...canonical,
+      ...without(canonical, 'identifier', 'copyright'),
       kind: primitive(),
       affectsState: primitive(),
       code: primitive(),
@@ -142,7 +142,7 @@ export const FOUNDATION_SHAPE: Readonly<Record<string, ResourceShape>> = {
 
   CompartmentDefinition: {
     fields: {
-      ...canonical,
+      ...without(canonical, 'identifier', 'title', 'jurisdiction', 'copyright'),
       code: primitive(),
       search: primitive(),
       resource: group({ code: primitive(), param: primitive(true), documentation: primitive() }),
@@ -154,7 +154,6 @@ export const FOUNDATION_SHAPE: Readonly<Record<string, ResourceShape>> = {
   CodeSystem: {
     fields: {
       ...canonical,
-      ...reviewed,
       caseSensitive: primitive(),
       valueSet: primitive(),
       hierarchyMeaning: primitive(),
@@ -174,7 +173,6 @@ export const FOUNDATION_SHAPE: Readonly<Record<string, ResourceShape>> = {
   ValueSet: {
     fields: {
       ...canonical,
-      ...reviewed,
       immutable: primitive(),
       compose: group({ lockedDate: primitive(), inactive: primitive() }, false),
       expansion: group(
@@ -188,7 +186,8 @@ export const FOUNDATION_SHAPE: Readonly<Record<string, ResourceShape>> = {
   ConceptMap: {
     fields: {
       ...canonical,
-      ...reviewed,
+      // R4 allows one identifier here, unlike most canonical resources.
+      identifier: identifier(false),
       source: choice(),
       target: choice(),
       group: group({ source: primitive(), target: primitive() }),
@@ -222,7 +221,7 @@ export const FOUNDATION_SHAPE: Readonly<Record<string, ResourceShape>> = {
 
   TerminologyCapabilities: {
     fields: {
-      ...canonical,
+      ...without(canonical, 'identifier'),
       kind: primitive(),
       lockedDate: primitive(),
       codeSearch: primitive(),
@@ -315,7 +314,6 @@ export const FOUNDATION_SHAPE: Readonly<Record<string, ResourceShape>> = {
       title: primitive(),
       confidentiality: primitive(),
       custodian: reference(),
-      note: annotation(),
       attester: group({ mode: primitive(), time: primitive(), party: reference() }),
       relatesTo: group({ code: primitive(), target: choice() }),
       event: group({ code: concept(true), period: period(), detail: reference(true) }),
@@ -330,6 +328,28 @@ export const FOUNDATION_SHAPE: Readonly<Record<string, ResourceShape>> = {
       }),
     },
     display: statusDisplay('title'),
+  },
+
+  /**
+   * R4 only — later releases fold this into `List`. Kept because R4 is the
+   * canonical target, so an R4 bundle may well carry one.
+   */
+  DocumentManifest: {
+    fields: {
+      masterIdentifier: identifier(false),
+      identifier: identifier(),
+      status: primitive(),
+      type: concept(),
+      subject: reference(),
+      created: primitive(),
+      author: reference(true),
+      recipient: reference(true),
+      source: primitive(),
+      description: primitive(),
+      content: reference(true),
+      related: group({ identifier: identifier(false), ref: reference() }),
+    },
+    display: statusDisplay('type'),
   },
 
   DocumentReference: {
@@ -498,7 +518,7 @@ export const FOUNDATION_SHAPE: Readonly<Record<string, ResourceShape>> = {
 
   GraphDefinition: {
     fields: {
-      ...canonical,
+      ...without(canonical, 'identifier', 'title', 'copyright'),
       start: primitive(),
       profile: primitive(),
       link: group({
@@ -513,7 +533,7 @@ export const FOUNDATION_SHAPE: Readonly<Record<string, ResourceShape>> = {
 
   ExampleScenario: {
     fields: {
-      ...canonical,
+      ...without(canonical, 'title', 'description'),
       actor: group({ actorId: primitive(), type: primitive(), name: primitive() }),
       process: group({ title: primitive(), description: primitive() }),
     },

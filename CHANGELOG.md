@@ -5,6 +5,35 @@ All notable changes to `fhir-normalize`.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0] — 2026-08-05
+
+### Added
+
+- **The shape tables are now checked against the R4 spec.** `spec/r4-elements.json` is a digest of
+  the published R4 `StructureDefinition`s, and the suite fails if a shape declares a field R4 does
+  not have, disagrees with R4 on whether a field repeats, reads a field as the wrong kind, or omits
+  an element R4 makes mandatory. Regenerate the digest with `pnpm --filter fhir-normalize spec:fetch`.
+- **`CatalogEntry`, `DocumentManifest`, and `VerificationResult`.** R4 resources that later releases
+  dropped; R4 is the canonical target, so a conforming bundle may carry them. 147 shapes in total.
+
+### Fixed
+
+- **53 declared fields did not exist in R4.** The tables were written from the current build of the
+  FHIR spec rather than R4, so R5 additions leaked in. A declared field is documentation —
+  `describeShape` reports it and consumers model against it — so these read as fields that would
+  never be populated. Most came from the shared `canonical` and `reviewed` blocks being spread onto
+  resources that lack some of their fields (`identifier` on `CapabilityStatement`, `approvalDate` on
+  `CodeSystem`, and so on); `without()` now subtracts what a given resource does not have.
+- **`Evidence` and `EvidenceVariable` were modelled on R5.** R5 rebuilt both around
+  `variableDefinition`/`statistic`/`certainty`, which are different resources wearing the same name.
+  Both are now declared against R4, including the mandatory `Evidence.exposureBackground`.
+- **`ConceptMap.identifier` and `TestScript.identifier` were read as lists.** R4 allows one of each,
+  so both emitted a single-element array instead of an object.
+- **`Media.content` was undeclared** despite being mandatory in R4.
+- Removed `AdverseEvent.code`, `MedicationAdministration.encounter`, `ResearchSubject.subject`, and
+  `Composition.note` — later-release spellings of elements R4 names differently or does not have.
+  The R4 spellings were already declared alongside them.
+
 ## [1.8.0] — 2026-08-05
 
 ### Added

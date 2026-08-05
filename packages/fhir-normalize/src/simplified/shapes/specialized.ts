@@ -15,9 +15,11 @@ import {
   quantity,
   range,
   reference,
+  relatedArtifactGroup,
   reviewed,
   statusDisplay,
   textOf,
+  without,
 } from './helpers';
 
 /**
@@ -73,7 +75,6 @@ export const SPECIALIZED_SHAPE: Readonly<Record<string, ResourceShape>> = {
       period: period(),
       study: reference(),
       individual: reference(),
-      subject: reference(),
       assignedArm: primitive(),
       actualArm: primitive(),
       consent: reference(),
@@ -183,7 +184,7 @@ export const SPECIALIZED_SHAPE: Readonly<Record<string, ResourceShape>> = {
   Questionnaire: {
     fields: {
       ...canonical,
-      ...reviewed,
+      ...without(reviewed, 'topic'),
       derivedFrom: primitive(true),
       subjectType: primitive(true),
       code: concept(true),
@@ -277,50 +278,44 @@ export const SPECIALIZED_SHAPE: Readonly<Record<string, ResourceShape>> = {
     display: (fields) => join(textOf(fields, 'title'), textOf(fields, 'workflowStatus')),
   },
 
+  /**
+   * R4's Evidence states an exposure against an outcome. R5 rebuilt it around
+   * `variableDefinition`/`statistic`/`certainty`, which are a different
+   * resource wearing the same name — declaring those here would document
+   * fields no R4 payload can carry.
+   */
   Evidence: {
     fields: {
-      ...canonical,
+      ...without(canonical, 'experimental', 'purpose'),
       ...reviewed,
       ...authored,
-      citeAs: choice(),
-      assertion: primitive(),
+      shortTitle: primitive(),
+      subtitle: primitive(),
       note: annotation(),
-      synthesisType: concept(),
-      studyType: concept(),
-      variableDefinition: group({
-        description: primitive(),
-        variableRole: concept(),
-        observed: reference(),
-        intended: reference(),
-      }),
-      statistic: group({
-        description: primitive(),
-        statisticType: concept(),
-        quantity: quantity(),
-        numberOfEvents: primitive(),
-        sampleSize: primitive(),
-      }),
-      certainty: group({ description: primitive(), type: concept(), rating: concept() }),
+      relatedArtifact: relatedArtifactGroup,
+      exposureBackground: reference(),
+      exposureVariant: reference(true),
+      outcome: reference(true),
     },
     display: statusDisplay('title'),
   },
 
   EvidenceVariable: {
     fields: {
-      ...canonical,
+      ...without(canonical, 'experimental', 'purpose'),
       ...reviewed,
       ...authored,
       shortTitle: primitive(),
       subtitle: primitive(),
       note: annotation(),
-      actual: primitive(),
-      handling: primitive(),
-      category: group({ name: primitive(), value: choice() }),
+      relatedArtifact: relatedArtifactGroup,
+      type: primitive(),
       characteristic: group({
         description: primitive(),
         definition: choice(),
         exclude: primitive(),
-        timeFromStart: primitive(),
+        participantEffective: choice(),
+        timeFromStart: quantity(),
         groupMeasure: primitive(),
       }),
     },
@@ -546,6 +541,8 @@ export const SPECIALIZED_SHAPE: Readonly<Record<string, ResourceShape>> = {
   TestScript: {
     fields: {
       ...canonical,
+      // R4 allows one identifier here, unlike most canonical resources.
+      identifier: identifier(false),
       origin: group({ index: primitive(), profile: concept() }),
       destination: group({ index: primitive(), profile: concept() }),
       fixture: group({ autocreate: primitive(), autodelete: primitive(), resource: reference() }),
@@ -613,7 +610,7 @@ export const SPECIALIZED_SHAPE: Readonly<Record<string, ResourceShape>> = {
 
   EffectEvidenceSynthesis: {
     fields: {
-      ...canonical,
+      ...without(canonical, 'experimental', 'purpose'),
       ...reviewed,
       ...authored,
       note: annotation(),
@@ -639,7 +636,7 @@ export const SPECIALIZED_SHAPE: Readonly<Record<string, ResourceShape>> = {
 
   RiskEvidenceSynthesis: {
     fields: {
-      ...canonical,
+      ...without(canonical, 'experimental', 'purpose'),
       ...reviewed,
       ...authored,
       note: annotation(),
@@ -663,5 +660,58 @@ export const SPECIALIZED_SHAPE: Readonly<Record<string, ResourceShape>> = {
       certainty: group({ rating: concept(true) }),
     },
     display: statusDisplay('title'),
+  },
+
+  // ------------------------------------------------------------ R4 only ----
+  /**
+   * Dropped after R4 — `CatalogEntry` by R5, which has no replacement, and
+   * `VerificationResult` by R6. R4 is the canonical target, so a conforming
+   * bundle may carry either and both deserve a curated shape.
+   */
+  CatalogEntry: {
+    fields: {
+      identifier: identifier(),
+      type: concept(),
+      orderable: primitive(),
+      referencedItem: reference(),
+      additionalIdentifier: identifier(),
+      classification: concept(true),
+      status: primitive(),
+      validityPeriod: period(),
+      validTo: primitive(),
+      lastUpdated: primitive(),
+      additionalCharacteristic: concept(true),
+      additionalClassification: concept(true),
+      relatedEntry: group({ relationtype: primitive(), item: reference() }),
+    },
+    display: (fields) => join(textOf(fields, 'type'), textOf(fields, 'status')),
+  },
+
+  VerificationResult: {
+    fields: {
+      target: reference(true),
+      targetLocation: primitive(true),
+      need: concept(),
+      status: primitive(),
+      statusDate: primitive(),
+      validationType: concept(),
+      validationProcess: concept(true),
+      frequency: group({ event: primitive(true) }, false),
+      lastPerformed: primitive(),
+      nextScheduled: primitive(),
+      failureAction: concept(),
+      primarySource: group({
+        who: reference(),
+        type: concept(true),
+        validationStatus: concept(),
+        validationDate: primitive(),
+      }),
+      attestation: group(
+        { who: reference(), onBehalfOf: reference(), communicationMethod: concept() },
+        false,
+      ),
+      validator: group({ organization: reference(), identityCertificate: primitive() }),
+    },
+    display: (fields) => join(textOf(fields, 'validationType'), textOf(fields, 'status')),
   },
 };
