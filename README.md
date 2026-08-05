@@ -28,14 +28,14 @@ import type { Bundle, FhirResource } from 'fhir-normalize';
 
 ## Status
 
-`1.10.0`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform`, and the `Normalizer`
+`1.10.1`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform`, and the `Normalizer`
 methods — is stable under semver; anything breaking lands in a major.
 
 | Format | Status |
 | --- | --- |
 | FHIR JSON (resource, Bundle, or array) | ✅ Supported |
 | FHIR XML | ✅ Supported |
-| Cross-version STU3 / R5 → R4 | ✅ Supported (curated field set) |
+| Cross-version STU3 / R5 → R4 | ⚠️ Partial (14 curated differences — [see coverage](#older-and-newer-releases-land-on-r4)) |
 | Simplified view (choice types resolved) | ✅ Supported (every section, 147 types) |
 | De-identification | ✅ Supported (structural; see the limits below) |
 | HL7 v2, C-CDA, CSV | 📋 Later |
@@ -126,8 +126,7 @@ normalizer.parse('<Patient><id value="x"/><gender value="male"/></Patient>');
 
 ### Older and newer releases land on R4
 
-STU3 and R5 resources are migrated to R4 automatically, so the canonical shape holds across
-releases as well as serializations:
+Known STU3 and R5 differences are migrated to R4 automatically:
 
 ```ts
 normalizer.parse('{"resourceType":"Observation","status":"final","context":{"reference":"Encounter/e"}}');
@@ -143,11 +142,37 @@ Migrations that cannot be bridged losslessly say so in `meta.warnings` — STU3
 `Observation.related` carries a relationship type R4 has nowhere to put, and R5 `Encounter.class`
 allows several codings where R4 allows one.
 
-**The migration table is curated, not exhaustive.** It covers well-known differences across
-Observation, Condition, Procedure, Communication, CarePlan, MedicationRequest, Patient, Encounter,
-and DocumentReference. A wrong migration silently corrupts clinical data, so differences that
-aren't certain are deliberately left alone rather than guessed at. Inspect or extend it via the
-exported `VERSION_MIGRATION` table.
+**Every row is checked against the published definitions.** The suite verifies that each migrated
+field really exists in the release it claims, that each target really exists in R4, and — the one
+that matters most — that no unguarded marker is a key a genuine R4 payload could carry. Migration is
+marker-driven, so a marker that also exists in R4 would rewrite valid R4 data. `Encounter.class` and
+`MedicationRequest.requester` need `applies` guards for exactly that reason.
+
+**The table is curated, and it is small.** Measured against the definitions:
+
+| | Elements differing from R4 | Migrated | Passed through unchanged |
+| --- | --- | --- | --- |
+| STU3 → R4 | 193 | 12 | 181, across 69 resources |
+| R5 → R4 | 601 | 2 | 599, across 102 resources |
+
+It covers Observation, Condition, Procedure, Communication, CarePlan, MedicationRequest, Patient,
+Encounter and DocumentReference. Everything else is **passed through untouched** — so a bundle
+typed as R4 can still carry fields that are not R4, and today nothing in `meta.warnings` says so.
+
+This is deliberate as far as it goes: a wrong migration corrupts clinical data silently, so
+differences that aren't certain are left alone rather than guessed at. But "left alone" currently
+also means "unreported". If that matters to you, `simplifyResource().unmapped` names every field
+that is not an element of the resource in R4 — see [the simplified view](#one-predictable-shape-per-resource).
+
+Inspect or extend the table via the exported `VERSION_MIGRATION`.
+
+> [!NOTE]
+> **A known gap in the simplified view for cross-version input.** A choice element is resolved from
+> its type suffix, and the suffix is not checked against the types R4 permits for that element. So
+> STU3 `Consent.sourceIdentifier` lands on `source` and R5 `Observation.valueReference` lands on
+> `value`, presented as conformant when R4 allows neither — and `unmapped` stays empty. Eight such
+> combinations exist across STU3 and R5, on `ConceptMap`, `Condition`, `Consent`, `Observation`,
+> `ActivityDefinition`, `PlanDefinition` and `MessageHeader`. Pure R4 input is unaffected.
 
 To keep the source release intact, assemble a normalizer without the stage:
 

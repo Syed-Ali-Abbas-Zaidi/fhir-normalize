@@ -1,6 +1,6 @@
 {
   "name": "fhir-normalize",
-  "version": "1.10.0",
+  "version": "1.10.1",
   "description": "Ingest healthcare data in multiple formats (FHIR JSON, FHIR XML) and get back one standard shape: a FHIR R4 Bundle, plus a simplified view with FHIR choice types resolved.",
   "keywords": [
     "fhir",
