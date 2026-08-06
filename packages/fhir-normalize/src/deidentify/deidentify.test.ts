@@ -2,7 +2,7 @@ import type { Bundle } from 'fhir/r4';
 import { describe, expect, it } from 'vitest';
 import { DATE_POLICY, FREE_TEXT_POLICY } from './constants';
 import { surrogate, surrogateReference } from './surrogate';
-import { deIdentifyBundle } from './utils';
+import { deIdentifyBundle, deIdentifyResource } from './utils';
 
 const patientBundle = (): Bundle =>
   ({
@@ -229,5 +229,60 @@ describe('surrogate', () => {
     const seen = new Set(ids.map((id) => surrogate(id, 'salt')));
 
     expect(seen.size).toBe(ids.length);
+  });
+});
+
+describe('deIdentifyResource', () => {
+  const patient = () => ({
+    resourceType: 'Patient' as const,
+    id: 'pat-1',
+    identifier: [{ system: 'http://hospital.example/mrn', value: 'MRN-417' }],
+    name: [{ family: 'Khan', given: ['Ali'] }],
+    birthDate: '1984-03-12',
+    telecom: [{ system: 'phone' as const, value: '+92-300-1234567' }],
+  });
+
+  it('scrubs a bare resource the same way it would inside a Bundle', () => {
+    // The asymmetry this closes: callers holding one resource had to wrap it
+    // in a Bundle and unwrap the result. Both paths must agree exactly.
+    const viaResource = deIdentifyResource(patient());
+    const viaBundle = deIdentifyBundle({
+      resourceType: 'Bundle',
+      type: 'collection',
+      entry: [{ resource: patient() }],
+    } as Bundle);
+
+    expect(viaResource.resource).toEqual(viaBundle.bundle.entry?.[0]?.resource);
+  });
+
+  it('reports on the one resource it was given', () => {
+    const { report } = deIdentifyResource(patient());
+
+    expect(report.redacted).toBeGreaterThan(0);
+    expect(report.elements).toContain('name');
+  });
+
+  it('leaves the input untouched', () => {
+    const input = patient();
+    const before = JSON.stringify(input);
+
+    deIdentifyResource(input);
+
+    expect(JSON.stringify(input)).toBe(before);
+  });
+
+  it('honours the same options as the Bundle pass', () => {
+    const { resource } = deIdentifyResource(patient(), {
+      dates: DATE_POLICY.YEAR,
+      keep: ['birthDate'],
+    });
+
+    expect(resource).toMatchObject({ birthDate: '1984-03-12' });
+  });
+
+  it('pseudonymizes ids consistently with the Bundle pass', () => {
+    const { resource } = deIdentifyResource(patient(), { salt: 'fixed' });
+
+    expect(resource.id).toBe(surrogate('pat-1', 'fixed'));
   });
 });

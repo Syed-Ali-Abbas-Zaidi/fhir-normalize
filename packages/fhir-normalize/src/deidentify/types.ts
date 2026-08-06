@@ -45,3 +45,9 @@ export interface DeIdentifyResult {
   bundle: import('fhir/r4').Bundle;
   report: DeIdentifyReport;
 }
+
+/** What {@link deIdentifyResource} returns — one resource, and its own report. */
+export interface DeIdentifyResourceResult {
+  resource: import('fhir/r4').FhirResource;
+  report: DeIdentifyReport;
+}

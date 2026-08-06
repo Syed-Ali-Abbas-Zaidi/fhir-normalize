@@ -18,15 +18,23 @@ import { patientFixture } from './parsers/fhir-json/__fixtures__';
 
 describe('createDefaultNormalizer', () => {
   it('registers every built-in parser, JSON first so the stricter check runs first', () => {
+    // Order is detection order. NDJSON goes last because a single JSON
+    // resource is legitimately both formats, and FHIR JSON should keep it.
     expect(createDefaultNormalizer().formats).toEqual([
       SOURCE_FORMAT.FHIR_JSON,
       SOURCE_FORMAT.FHIR_XML,
+      SOURCE_FORMAT.NDJSON,
     ]);
   });
 
   it.each([
     ['JSON', '{"resourceType":"Patient","id":"x"}', SOURCE_FORMAT.FHIR_JSON],
     ['XML', '<Patient><id value="x"/></Patient>', SOURCE_FORMAT.FHIR_XML],
+    [
+      'NDJSON',
+      '{"resourceType":"Patient","id":"x"}\n{"resourceType":"Patient","id":"y"}',
+      SOURCE_FORMAT.NDJSON,
+    ],
   ])('routes %s to its own adapter', (_label, input, expected) => {
     expect(createDefaultNormalizer().detectFormat(input)).toBe(expected);
   });

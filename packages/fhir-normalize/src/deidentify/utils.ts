@@ -1,4 +1,4 @@
-import type { Bundle } from 'fhir/r4';
+import type { Bundle, FhirResource } from 'fhir/r4';
 import { isRecord, type UnknownRecord } from '../core';
 import {
   DATE_PATTERN,
@@ -11,7 +11,12 @@ import {
   REDACT_ELEMENT,
 } from './constants';
 import { surrogate, surrogateReference } from './surrogate';
-import type { DeIdentifyOptions, DeIdentifyReport, DeIdentifyResult } from './types';
+import type {
+  DeIdentifyOptions,
+  DeIdentifyReport,
+  DeIdentifyResourceResult,
+  DeIdentifyResult,
+} from './types';
 
 interface Tally {
   redacted: number;
@@ -199,6 +204,35 @@ const settingsFrom = (options: DeIdentifyOptions): Settings => ({
 });
 
 /**
+ * The scrub itself. A Bundle and a bare resource are both just records, so
+ * they share one implementation and differ only in what the caller names the
+ * result.
+ */
+const scrubWith = (
+  record: UnknownRecord,
+  options: DeIdentifyOptions,
+): { scrubbed: UnknownRecord; report: DeIdentifyReport } => {
+  const tally: Tally = {
+    redacted: 0,
+    pseudonymized: 0,
+    datesGeneralized: 0,
+    elements: new Set<string>(),
+  };
+
+  const scrubbed = scrubRecord(record, settingsFrom(options), tally);
+
+  return {
+    scrubbed,
+    report: {
+      redacted: tally.redacted,
+      pseudonymized: tally.pseudonymized,
+      datesGeneralized: tally.datesGeneralized,
+      elements: [...tally.elements].sort(),
+    },
+  };
+};
+
+/**
  * Remove direct identifiers from a canonical Bundle.
  *
  * Structural, not semantic: it acts on element names and datatypes, so it
@@ -211,22 +245,29 @@ export const deIdentifyBundle = (
   bundle: Bundle,
   options: DeIdentifyOptions = {},
 ): DeIdentifyResult => {
-  const settings = settingsFrom(options);
-  const tally: Tally = {
-    redacted: 0,
-    pseudonymized: 0,
-    datesGeneralized: 0,
-    elements: new Set<string>(),
-  };
-
-  const scrubbed = scrubRecord(bundle as unknown as UnknownRecord, settings, tally);
-
-  const report: DeIdentifyReport = {
-    redacted: tally.redacted,
-    pseudonymized: tally.pseudonymized,
-    datesGeneralized: tally.datesGeneralized,
-    elements: [...tally.elements].sort(),
-  };
+  const { scrubbed, report } = scrubWith(bundle as unknown as UnknownRecord, options);
 
   return { bundle: scrubbed as unknown as Bundle, report };
+};
+
+/**
+ * Remove direct identifiers from a single resource.
+ *
+ * The same pass as {@link deIdentifyBundle}, for callers holding one resource
+ * rather than a Bundle — reading an NDJSON export a line at a time, say, where
+ * wrapping each resource in a Bundle just to unwrap it again would allocate a
+ * container per resource for nothing.
+ *
+ * `report` covers this resource alone. Summing across a stream is the caller's
+ * to do, since only they know where the stream ends.
+ *
+ * The input is not modified — a new resource is returned.
+ */
+export const deIdentifyResource = (
+  resource: FhirResource,
+  options: DeIdentifyOptions = {},
+): DeIdentifyResourceResult => {
+  const { scrubbed, report } = scrubWith(resource as unknown as UnknownRecord, options);
+
+  return { resource: scrubbed as unknown as FhirResource, report };
 };

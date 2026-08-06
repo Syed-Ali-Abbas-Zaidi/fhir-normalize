@@ -18,10 +18,11 @@ export type {
   DeIdentifyAction,
   DeIdentifyOptions,
   DeIdentifyReport,
+  DeIdentifyResourceResult,
   DeIdentifyResult,
   FreeTextPolicy,
 } from './types';
-export { deIdentifyBundle } from './utils';
+export { deIdentifyBundle, deIdentifyResource } from './utils';
 
 /**
  * A post-parse stage that strips direct identifiers.
