@@ -15,7 +15,9 @@ export const DETECTION_REQUIRED = 2;
 
 export const NDJSON_WARNING = {
   SKIPPED_LINES: (count: number, first: number): string =>
-    `${count} line${count === 1 ? '' : 's'} were not valid JSON objects and were skipped, starting at line ${first}.`,
+    count === 1
+      ? `Line ${first} was not a valid JSON object and was skipped.`
+      : `${count} lines were not valid JSON objects and were skipped, starting at line ${first}.`,
 } as const;
 
 /** Unrecoverable failures. These throw a `ParseError`. */

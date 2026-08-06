@@ -8,7 +8,6 @@ import type { NormalizerOptions } from './core';
 import { Normalizer } from './core';
 import { createDeIdentifyTransform } from './deidentify';
 import { fhirJsonParser } from './parsers/fhir-json';
-import { fhirXmlParser } from './parsers/fhir-xml';
 import { ndjsonParser } from './parsers/ndjson';
 import { r4VersionTransform } from './version';
 
@@ -64,7 +63,6 @@ export {
   surrogateReference,
 } from './deidentify';
 export { fhirJsonParser } from './parsers/fhir-json';
-export { fhirXmlParser } from './parsers/fhir-xml';
 export { ndjsonParser } from './parsers/ndjson';
 export type {
   DescribeFormat,
@@ -118,16 +116,27 @@ export {
 } from './version';
 
 /**
- * A `Normalizer` with every built-in parser registered — the batteries-included
- * entry point.
+ * A `Normalizer` with the JSON-family parsers registered — the
+ * batteries-included entry point.
  *
  * It is a factory rather than a shared singleton so importing this module has
  * no side effects: each caller gets an isolated registry it can extend with
  * `register()` without affecting anyone else.
  *
+ * **XML is not registered here.** Its adapter lives at `fhir-normalize/xml`
+ * because `fast-xml-parser` is ~61KB and is not side-effect-free, so importing
+ * it from this module linked it into every consumer's bundle whether or not
+ * they parsed XML — four times the size of the library itself. Add it back in
+ * one line:
+ *
+ * ```ts
+ * import { fhirXmlParser } from 'fhir-normalize/xml';
+ *
+ * const normalizer = createDefaultNormalizer().register(fhirXmlParser);
+ * ```
+ *
  * Registration order is detection order. JSON goes first because its check is
- * the stricter of the two: it requires a decodable object with a
- * `resourceType`, while the XML check only looks for a leading `<`.
+ * the strictest: it requires a decodable object with a `resourceType`.
  *
  * Cross-version normalization runs as a post-parse stage, so STU3 and R5 input
  * lands on R4 whichever serialization it arrived in. Drop it with
@@ -140,7 +149,6 @@ export {
 export const createDefaultNormalizer = (options: NormalizerOptions = {}): Normalizer => {
   const normalizer = new Normalizer()
     .register(fhirJsonParser)
-    .register(fhirXmlParser)
     // Last: detection is first-match-wins, and a single JSON resource is
     // legitimately both NDJSON and FHIR JSON. The adapter that already
     // handles it keeps it.

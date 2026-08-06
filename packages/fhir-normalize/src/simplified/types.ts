@@ -1,4 +1,5 @@
 import type { DESCRIBE_FORMAT, FIELD_KIND, VALUE_KIND } from './constants';
+import type { ResourceFieldMap } from './fields.generated';
 
 export type ValueKind = (typeof VALUE_KIND)[keyof typeof VALUE_KIND];
 export type FieldKind = (typeof FIELD_KIND)[keyof typeof FIELD_KIND];
@@ -201,8 +202,19 @@ export interface ShapeDescription {
 }
 
 /** One resource, reduced to a predictable shape. */
-export interface SimplifiedResource {
-  resourceType: string;
+/**
+ * The fields of a known resource type, or the loose map for anything else.
+ *
+ * `simplifyResource` picks this up from the input's `resourceType` when the
+ * caller passes a typed resource, so `fields.value` on an Observation is the
+ * nine-member union R4 permits rather than "some normalized value".
+ */
+export type FieldsOf<T extends string> = T extends keyof ResourceFieldMap
+  ? ResourceFieldMap[T]
+  : SimplifiedFields;
+
+export interface SimplifiedResourceOf<T extends string = string> {
+  resourceType: T;
   id: string | null;
   /** A one-line human label. Always a string, never empty. */
   display: string;
@@ -210,10 +222,13 @@ export interface SimplifiedResource {
    * Normalized fields, keyed by their canonical name with any choice-type
    * suffix removed — `valueQuantity` and `valueString` both land on `value`.
    */
-  fields: SimplifiedFields;
+  fields: FieldsOf<T>;
   /**
    * Elements present on the resource that the shape does not declare. Listed
    * rather than silently dropped, so a gap in coverage is visible.
    */
   unmapped: string[];
 }
+
+/** A simplified resource whose type is not known at compile time. */
+export type SimplifiedResource = SimplifiedResourceOf<string>;

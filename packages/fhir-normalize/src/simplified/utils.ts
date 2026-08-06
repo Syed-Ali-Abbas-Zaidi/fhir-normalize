@@ -1,4 +1,4 @@
-import type { Bundle } from 'fhir/r4';
+import type { Bundle, FhirResource } from 'fhir/r4';
 import { isRecord, type UnknownRecord } from '../core';
 import { choiceKeys, resolveChoice } from './choice';
 import { EMPTY_TEXT, FIELD_KIND, VALUE_KIND } from './constants';
@@ -24,6 +24,7 @@ import type {
   NormalizedValue,
   SimplifiedFields,
   SimplifiedResource,
+  SimplifiedResourceOf,
 } from './types';
 
 /**
@@ -116,7 +117,11 @@ const readFields = (
  * `unmapped` — so an incomplete shape costs fidelity of *interpretation*, never
  * the data itself.
  */
-export const simplifyResource = (resource: unknown): SimplifiedResource => {
+export function simplifyResource<T extends FhirResource>(
+  resource: T,
+): SimplifiedResourceOf<T['resourceType']>;
+export function simplifyResource(resource: unknown): SimplifiedResource;
+export function simplifyResource(resource: unknown): SimplifiedResource {
   const record = isRecord(resource) ? resource : {};
   const resourceType = str(record.resourceType) ?? 'Unknown';
   const shape = shapeFor(resourceType);
@@ -146,7 +151,7 @@ export const simplifyResource = (resource: unknown): SimplifiedResource => {
     fields,
     unmapped,
   };
-};
+}
 
 /**
  * Reduce every resource in a canonical Bundle.
