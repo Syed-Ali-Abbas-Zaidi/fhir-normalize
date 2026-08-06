@@ -9,6 +9,7 @@ import { Normalizer } from './core';
 import { createDeIdentifyTransform } from './deidentify';
 import { fhirJsonParser } from './parsers/fhir-json';
 import { fhirXmlParser } from './parsers/fhir-xml';
+import { ndjsonParser } from './parsers/ndjson';
 import { r4VersionTransform } from './version';
 
 export type {
@@ -45,6 +46,7 @@ export type {
   DeIdentifyAction,
   DeIdentifyOptions,
   DeIdentifyReport,
+  DeIdentifyResourceResult,
   DeIdentifyResult,
   FreeTextPolicy,
 } from './deidentify';
@@ -54,6 +56,7 @@ export {
   DEID_ACTION,
   DEID_TRANSFORM_NAME,
   deIdentifyBundle,
+  deIdentifyResource,
   FREE_TEXT_ELEMENT,
   FREE_TEXT_POLICY,
   REDACT_ELEMENT,
@@ -62,6 +65,7 @@ export {
 } from './deidentify';
 export { fhirJsonParser } from './parsers/fhir-json';
 export { fhirXmlParser } from './parsers/fhir-xml';
+export { ndjsonParser } from './parsers/ndjson';
 export type {
   DescribeFormat,
   FieldKind,
@@ -137,6 +141,10 @@ export const createDefaultNormalizer = (options: NormalizerOptions = {}): Normal
   const normalizer = new Normalizer()
     .register(fhirJsonParser)
     .register(fhirXmlParser)
+    // Last: detection is first-match-wins, and a single JSON resource is
+    // legitimately both NDJSON and FHIR JSON. The adapter that already
+    // handles it keeps it.
+    .register(ndjsonParser)
     .use(r4VersionTransform);
 
   const { deIdentify } = options;

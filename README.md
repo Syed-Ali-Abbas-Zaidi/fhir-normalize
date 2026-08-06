@@ -28,13 +28,14 @@ import type { Bundle, FhirResource } from 'fhir-normalize';
 
 ## Status
 
-`1.11.0`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform`, and the `Normalizer`
+`1.12.0`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform`, and the `Normalizer`
 methods — is stable under semver; anything breaking lands in a major.
 
 | Format | Status |
 | --- | --- |
 | FHIR JSON (resource, Bundle, or array) | ✅ Supported |
 | FHIR XML | ✅ Supported |
+| NDJSON (Bulk Data `$export`) | ✅ Supported |
 | Cross-version STU3 / R5 → R4 | ⚠️ Partial (14 curated differences — [see coverage](#older-and-newer-releases-land-on-r4)) |
 | Simplified view (choice types resolved) | ✅ Supported (every section, 147 types) |
 | De-identification | ✅ Supported (structural; see the limits below) |
@@ -78,16 +79,25 @@ The 147 resource shape tables are the bulk of the library, and they only ship if
 
 | What you import | Library code |
 | --- | --- |
-| parsing only | ~15 KB |
+| parsing only | ~16 KB |
 | parsing + the simplified view | ~81 KB |
 
 The simplified view grew in 1.10.0, when the tables went from partial to complete coverage of every
 element of every resource they shape, and again in 1.11.0 with the permitted types on each choice.
 Parsing-only bundles are unaffected.
 
-`fast-xml-parser` adds about 62 KB on top and is linked by any root import, because
-`createDefaultNormalizer` registers both parsers. There is no way to avoid it today short of not
-supporting XML.
+`fast-xml-parser` adds about 61 KB on top of those figures, and **any import from the root pulls it
+in** — including one that never touches XML. Registering only the adapters you want does not help:
+
+```ts
+// Still links fast-xml-parser, despite never registering the XML adapter.
+const normalizer = new Normalizer().register(fhirJsonParser).register(ndjsonParser);
+```
+
+The root module statically imports the XML adapter, and `fast-xml-parser` does not declare itself
+side-effect-free, so no bundler can drop it. Measured with esbuild: 10.8 KB of library code becomes
+71.8 KB once it is linked. Removing that needs the XML adapter behind its own entry point, which
+would change what `createDefaultNormalizer` supports — so it is waiting for a major.
 
 ## Usage
 
@@ -124,6 +134,45 @@ normalizer.parse('<Patient><id value="x"/><gender value="male"/></Patient>');
   unambiguous — `value[x]` suffixes encode their own type (`valueInteger` → number), plus a few
   fixed-type names. Anything else stays a string, deliberately: `<postalCode value="02134"/>`
   must not become `2134`.
+
+### Bulk Data exports, one resource at a time
+
+FHIR Bulk Data (`$export`) returns NDJSON — one resource per line, routinely hundreds of megabytes.
+Handed the whole string, the NDJSON adapter reads it like any other format:
+
+```ts
+normalizer.parse(await readFile('Observation.ndjson', 'utf8'));
+// -> meta.sourceFormat: 'ndjson', one collection Bundle
+```
+
+Detection is cheap — it inspects the first two lines, not the file — and requires **two or more**
+resource lines, so a single JSON resource still goes to the FHIR JSON adapter. A line that is not a
+JSON resource is skipped and reported in `meta.warnings` rather than failing the export.
+
+For a file too large to hold in memory, work line by line. Every piece of the library has a
+per-resource entry point, so nothing needs the whole set at once:
+
+```ts
+import { createInterface } from 'node:readline';
+import { createDefaultNormalizer, SOURCE_FORMAT } from 'fhir-normalize';
+import { simplifyResource } from 'fhir-normalize/simplified';
+import { deIdentifyResource } from 'fhir-normalize/deidentify';
+
+const normalizer = createDefaultNormalizer();
+
+for await (const line of createInterface({ input: createReadStream(path) })) {
+  if (!line) continue;
+
+  const { bundle } = normalizer.parse(JSON.parse(line), SOURCE_FORMAT.FHIR_JSON);
+  const { resource } = deIdentifyResource(bundle.entry![0]!.resource!);
+
+  await sink.write(simplifyResource(resource));
+}
+```
+
+Measured on a 62 MB export of 200,000 Observations: **467 MB of RSS** reading and parsing the whole
+file, against **93 MB** streaming it — and the streaming figure is flat, so it does not change when
+the file does.
 
 ### Older and newer releases land on R4
 
@@ -360,7 +409,8 @@ createDefaultNormalizer({
 ```
 
 `deIdentifyBundle(bundle, options)` does the same thing as a plain function and returns a report of
-what changed.
+what changed. `deIdentifyResource(resource, options)` is the same pass over a single resource, for
+callers reading an export a line at a time — identical output, and no throwaway Bundle per resource.
 
 > [!IMPORTANT]
 > **Read these limits before releasing anything.**
@@ -454,10 +504,11 @@ Registering an already-registered format replaces it, so you can also override a
 | `createDefaultNormalizer()` | A `Normalizer` with all built-in parsers registered. |
 | `fhirJsonParser`, `fhirXmlParser` | The built-in adapters. |
 | `simplifyBundle`, `simplifyResource` | The simplified view: choice types resolved, datatypes flattened. |
+| `fhirJsonParser`, `fhirXmlParser`, `ndjsonParser` | The built-in format adapters, registerable on your own `Normalizer`. |
 | `resolveChoice` | Resolves one `value[x]`-style element on its own. |
 | `formatShape`, `describeShape`, `listShapes` | The simplified structure of a resource type, printed or as data. |
 | `shapeFor`, `valueProperties` | Shape lookup with alias resolution, and a value kind's property names. |
-| `deIdentifyBundle`, `createDeIdentifyTransform` | Structural de-identification, as a function or a stage. |
+| `deIdentifyBundle`, `deIdentifyResource`, `createDeIdentifyTransform` | Structural de-identification: a Bundle, one resource, or a pipeline stage. |
 | `DATE_POLICY`, `FREE_TEXT_POLICY`, `REDACT_ELEMENT` | De-identification policy tokens and the redact list. |
 | `RESOURCE_SHAPE`, `VALUE_KIND` | The per-resource field specs and the value-kind tokens. |
 | `ParseResult` | `{ bundle, meta: { sourceFormat, parsedAt, warnings } }`. |

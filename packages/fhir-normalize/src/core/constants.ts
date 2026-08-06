@@ -9,6 +9,7 @@ import type { SourceFormat } from './types';
 export const SOURCE_FORMAT = {
   FHIR_JSON: 'fhir-json',
   FHIR_XML: 'fhir-xml',
+  NDJSON: 'ndjson',
   HL7V2: 'hl7v2',
   CCDA: 'ccda',
   CSV: 'csv',

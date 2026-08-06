@@ -5,6 +5,38 @@ All notable changes to `fhir-normalize`.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.12.0] — 2026-08-06
+
+Both additions are for the same workload: a FHIR Bulk Data export, which is NDJSON and is routinely
+too large to hold in memory.
+
+### Added
+
+- **NDJSON.** `ndjsonParser` reads newline-delimited JSON — the format `$export` returns — and is
+  registered by default. Detection inspects the first two lines rather than the file, so it costs
+  nothing on a 62 MB input, and it requires **two or more** resource lines: a single JSON resource
+  is legitimately both formats, so the FHIR JSON adapter keeps it. A line that is not a JSON
+  resource is skipped and reported in `meta.warnings` rather than failing the whole export.
+- **`deIdentifyResource(resource, options)`** — the same pass as `deIdentifyBundle` over a single
+  resource, closing the asymmetry with `simplifyResource`, which already existed. Callers reading an
+  export a line at a time had to wrap each resource in a Bundle and unwrap the result; on 50,000
+  resources that workaround costs 243 ms against 140 ms, plus a discarded Bundle per resource. Both
+  paths are asserted to produce identical output.
+- The built-in parsers are exported (`fhirJsonParser`, `fhirXmlParser`, `ndjsonParser`) for
+  assembling a `Normalizer` by hand.
+
+Streaming a 62 MB export of 200,000 Observations now needs **93 MB of RSS, flat**, against 467 MB to
+read and parse it whole.
+
+### Notes
+
+- Parsing-only bundles grow from ~15 KB to ~16 KB for the NDJSON adapter.
+- Documented a measurement that turned out to contradict the previous README: **any root import
+  links `fast-xml-parser`**, worth ~61 KB, even when the XML adapter is never registered. The root
+  module imports it statically and the package is not marked side-effect-free, so bundlers cannot
+  drop it. Fixing that means moving the XML adapter behind its own entry point, which changes what
+  `createDefaultNormalizer` supports — deferred to a major.
+
 ## [1.11.0] — 2026-08-05
 
 ### Fixed
