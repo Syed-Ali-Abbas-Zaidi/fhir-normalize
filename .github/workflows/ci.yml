@@ -128,10 +128,34 @@ jobs:
           node --input-type=module -e "
             import { createDefaultNormalizer } from 'fhir-normalize';
             const { bundle, meta } = createDefaultNormalizer()
-              .parse('<Patient><id value=\"x\"/></Patient>');
-            if (meta.sourceFormat !== 'fhir-xml') throw new Error('wrong format: ' + meta.sourceFormat);
+              .parse('{\"resourceType\":\"Patient\",\"id\":\"x\"}');
+            if (meta.sourceFormat !== 'fhir-json') throw new Error('wrong format: ' + meta.sourceFormat);
             if (bundle.entry[0].resource.resourceType !== 'Patient') throw new Error('bad bundle');
             console.log('esm ok on node ' + process.versions.node);
+          "
+
+      # Every subpath must resolve under a real install, not just under the
+      # workspace. `./xml` is new in 2.0 and is the only way to parse XML.
+      - name: Resolve every subpath, and opt into XML
+        working-directory: ${{ runner.temp }}/consumer
+        run: |
+          node --input-type=module -e "
+            import { createDefaultNormalizer } from 'fhir-normalize';
+            import { simplifyResource } from 'fhir-normalize/simplified';
+            import { deIdentifyResource } from 'fhir-normalize/deidentify';
+            import { fhirXmlParser } from 'fhir-normalize/xml';
+
+            const plain = createDefaultNormalizer();
+            if (plain.detectFormat('<Patient/>') !== null) throw new Error('xml should not be registered by default');
+
+            const { bundle, meta } = plain.register(fhirXmlParser)
+              .parse('<Patient><id value=\"x\"/></Patient>');
+            if (meta.sourceFormat !== 'fhir-xml') throw new Error('wrong format: ' + meta.sourceFormat);
+
+            const resource = bundle.entry[0].resource;
+            if (simplifyResource(resource).resourceType !== 'Patient') throw new Error('simplify failed');
+            if (!deIdentifyResource(resource).resource) throw new Error('deidentify failed');
+            console.log('subpaths ok on node ' + process.versions.node);
           "
 
       - name: Require as CJS
