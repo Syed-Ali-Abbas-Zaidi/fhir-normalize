@@ -5,6 +5,29 @@ All notable changes to `fhir-normalize`.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.1] — 2026-08-06
+
+No code change — `dist` is byte-identical to 2.0.0. Released so the npm page picks up the
+playground link, which only reaches it through a publish.
+
+### Documentation
+
+- **The playground is live at
+  [fhir-normalize-playground.vercel.app](https://fhir-normalize-playground.vercel.app)** and linked
+  from the README and `package.json` `homepage`. It had never been publicly reachable before:
+  Vercel Authentication was intercepting requests, and the short domain was unassigned.
+
+### Internal
+
+- The build now fails when the playground falls behind the library. It had drifted twice without
+  anything noticing — NDJSON shipped in 1.12.0 and was never offered, and 2.0 moved the XML adapter
+  out of the defaults while the playground kept advertising an `xml` toggle it could no longer
+  honour. The new assertions compare the page against the registry: every registered format needs a
+  parse mode and a label, no mode may exist that the library cannot serve, and every sample must
+  detect *and* parse, both on auto and under its own named format. Verified by reintroducing both
+  bugs.
+- The playground had no tests; root `test` now runs every package rather than only the library.
+
 ## [2.0.0] — 2026-08-06
 
 Two breaking changes, both of which had been deferred waiting for a major. See
