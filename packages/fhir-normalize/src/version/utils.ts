@@ -92,12 +92,23 @@ const applyMigration = (
   }
 
   if (target !== undefined) {
+    const converted = convert === undefined ? value : convert(value);
+
+    // A converter that cannot produce something conformant with the R4 element
+    // returns `undefined`. Writing it anyway would put a value R4 does not
+    // allow into a bundle claiming to be R4, so the element goes instead — and
+    // the warning says dropped rather than migrated.
+    if (converted === undefined) {
+      warnings.add(VERSION_WARNING.UNCONVERTIBLE(at, from, source, target) + note);
+      return rest;
+    }
+
     if (target !== source) {
       warnings.add(VERSION_WARNING.RENAMED(at, from, source, target) + note);
     } else if (reason !== undefined) {
       warnings.add(VERSION_WARNING.REWRITTEN(at, from, source, [target]) + note);
     }
-    return { ...rest, [target]: convert === undefined ? value : convert(value) };
+    return { ...rest, [target]: converted };
   }
 
   warnings.add(VERSION_WARNING.DROPPED(at, from, source) + note);

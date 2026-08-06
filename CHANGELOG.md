@@ -5,6 +5,32 @@ All notable changes to `fhir-normalize`.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.2] — 2026-08-06
+
+### Fixed
+
+- **A cross-version migration could write a value R4 does not allow.** The six converters that
+  rewrite clinical data passed malformed input straight through, and whatever they returned went
+  into the resource unchecked — so a non-string `Observation.comment` produced `note: 42` where R4
+  requires `Annotation[]`, an `Observation.related` with no usable targets produced `hasMember: []`
+  which FHIR JSON forbids, and an R5 `Encounter.class` carrying only `text` produced a `Coding` with
+  a `text` element, which Coding does not have.
+
+  A converter now returns nothing when it cannot produce a conformant value, and the element is
+  dropped rather than written. These run on data from another release, so malformed input is the
+  ordinary case rather than the exotic one.
+
+- **The warning blamed the spec for a problem with the payload.** A dropped conversion reported
+  `"comment" has no R4 equivalent`, when `comment` does have one and only this value was
+  unconvertible. That case now reads `could not be expressed as R4 "note"`, distinct from the
+  genuinely-absent elements like `Patient.animal`.
+
+### Internal
+
+- `version/converters.ts` goes from 62.5% to 100% branch coverage. It is the only code in the
+  library that rewrites clinical data rather than reading it, so its fallbacks are checked against
+  the R4 element each one writes to, rather than against what the code happened to do.
+
 ## [2.0.1] — 2026-08-06
 
 No code change — `dist` is byte-identical to 2.0.0. Released so the npm page picks up the

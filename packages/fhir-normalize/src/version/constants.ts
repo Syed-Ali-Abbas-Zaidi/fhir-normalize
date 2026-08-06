@@ -138,6 +138,14 @@ export const VERSION_WARNING = {
     `${at}: ${from} field "${source}" was restructured for R4 as ${targets.join(', ') || 'nothing'}.`,
   DROPPED: (at: string, from: string, source: string): string =>
     `${at}: ${from} field "${source}" has no R4 equivalent — dropped.`,
+  /**
+   * Distinct from DROPPED: the field *does* have an R4 equivalent, but this
+   * value could not be expressed as one — a `comment` that is not a string,
+   * a `class` carrying only text where R4 wants a Coding. Saying "no R4
+   * equivalent" would blame the spec for what is a problem with the payload.
+   */
+  UNCONVERTIBLE: (at: string, from: string, source: string, target: string): string =>
+    `${at}: ${from} field "${source}" could not be expressed as R4 "${target}" — dropped.`,
   RESOURCE_RENAMED: (at: string, from: string, to: string): string =>
     `${at}: resource type "${from}" is "${to}" in R4 — renamed.`,
 } as const;
