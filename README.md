@@ -8,6 +8,9 @@ Ingest healthcare data in several formats and get back **one standard shape**: a
 
 Write your downstream logic once, against one type, instead of branching per source system.
 
+**[Try it in the playground →](https://fhir-normalize-playground.vercel.app)** — paste JSON, XML,
+NDJSON, or an STU3 resource and watch what comes out.
+
 ```ts
 import { createDefaultNormalizer } from 'fhir-normalize';
 
@@ -589,6 +592,8 @@ heterogeneous and there is nothing to infer from.
 | `isBundle`, `isBundleType` | Type guards. |
 
 ## Playground
+
+**[fhir-normalize-playground.vercel.app](https://fhir-normalize-playground.vercel.app)**
 
 [`playground/`](playground) is a Next.js app that runs the library in the browser: paste raw data
 on the left, watch it come out as the standard shape on the right, with the detected format, the
