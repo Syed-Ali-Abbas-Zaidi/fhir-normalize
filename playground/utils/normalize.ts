@@ -1,4 +1,5 @@
 import { createDefaultNormalizer, type SourceFormat } from 'fhir-normalize';
+import { fhirXmlParser } from 'fhir-normalize/xml';
 import { PARSE_MODE, RESULT_STATE } from '@/constants';
 import type { ParseMode, PlaygroundResult } from '@/types';
 
@@ -6,14 +7,19 @@ import type { ParseMode, PlaygroundResult } from '@/types';
  * One registry for the page. This is the real published surface — parsers,
  * detection, and the R4 version stage — so the demo cannot drift from the
  * library it is demonstrating.
+ *
+ * XML is registered explicitly. Since 2.0 it is not in the defaults, because
+ * `fast-xml-parser` cannot be tree-shaken and so cost every consumer ~61KB
+ * whether or not they parsed XML. The playground does parse XML, so it opts
+ * in — which is exactly the one-line migration the README describes.
  */
-const normalizer = createDefaultNormalizer();
+const normalizer = createDefaultNormalizer().register(fhirXmlParser);
 
 /**
  * A second registry with the de-identification stage. Two instances rather
  * than one rebuilt per keystroke: a Normalizer is a registry, not state.
  */
-const deIdentifying = createDefaultNormalizer({ deIdentify: true });
+const deIdentifying = createDefaultNormalizer({ deIdentify: true }).register(fhirXmlParser);
 
 /** Which format the library would pick, or `null` if it cannot tell. */
 export const detectFormat = (input: string): SourceFormat | null => {
