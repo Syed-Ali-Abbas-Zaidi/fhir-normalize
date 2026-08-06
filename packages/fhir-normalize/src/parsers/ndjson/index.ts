@@ -10,7 +10,7 @@ import {
   type ParseResult,
   SOURCE_FORMAT,
 } from '../../core';
-import { DETECTION_LINES, NDJSON_ERROR, NDJSON_WARNING } from './constants';
+import { DETECTION_REQUIRED, DETECTION_WINDOW, NDJSON_ERROR, NDJSON_WARNING } from './constants';
 
 /** A JSON object carrying a `resourceType`, or `null` if the line is not one. */
 const decodeResource = (line: string): FhirResource | null => {
@@ -29,7 +29,7 @@ const decodeResource = (line: string): FhirResource | null => {
  *
  * Read by scanning for newlines rather than splitting: detection may be handed
  * an entire Bulk Data export, and `split('\n')` on a 500MB string would
- * allocate the whole file as an array to look at two lines.
+ * allocate the whole file as an array to look at a handful of lines.
  */
 const leadingLines = (text: string, limit: number): string[] => {
   const lines: string[] = [];
@@ -66,8 +66,10 @@ export const ndjsonParser: FormatParser = {
   canParse(raw: unknown): boolean {
     if (typeof raw !== 'string') return false;
 
-    const lines = leadingLines(raw, DETECTION_LINES);
-    return lines.length === DETECTION_LINES && lines.every((line) => decodeResource(line) !== null);
+    const lines = leadingLines(raw, DETECTION_WINDOW);
+    const resources = lines.filter((line) => decodeResource(line) !== null);
+
+    return resources.length >= DETECTION_REQUIRED;
   },
 
   parse(raw: unknown): ParseResult {

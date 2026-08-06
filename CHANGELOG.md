@@ -5,6 +5,22 @@ All notable changes to `fhir-normalize`.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.12.1] — 2026-08-06
+
+### Fixed
+
+- **NDJSON detection failed if either of the first two lines was corrupt.** Parsing skips a bad line
+  and reports it, but detection required the first two lines to both be resources — so one bad line
+  near the top of an export meant the format was not recognised at all, and `parse` threw
+  `UnsupportedFormatError`. That is precisely the case the parser's leniency exists for.
+
+  Detection now looks at the first five non-empty lines and needs two of them to be resources. A
+  single JSON resource still goes to the FHIR JSON adapter, and a lone resource followed by junk is
+  still not NDJSON.
+
+  Shipped in 1.12.0 because the detection tests only ever used clean input, while the leniency tests
+  called the adapter directly and never went through detection.
+
 ## [1.12.0] — 2026-08-06
 
 Both additions are for the same workload: a FHIR Bulk Data export, which is NDJSON and is routinely
