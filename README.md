@@ -28,7 +28,7 @@ import type { Bundle, FhirResource } from 'fhir-normalize';
 
 ## Status
 
-`1.12.0`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform`, and the `Normalizer`
+`1.12.1`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform`, and the `Normalizer`
 methods — is stable under semver; anything breaking lands in a major.
 
 | Format | Status |
@@ -145,9 +145,10 @@ normalizer.parse(await readFile('Observation.ndjson', 'utf8'));
 // -> meta.sourceFormat: 'ndjson', one collection Bundle
 ```
 
-Detection is cheap — it inspects the first two lines, not the file — and requires **two or more**
-resource lines, so a single JSON resource still goes to the FHIR JSON adapter. A line that is not a
-JSON resource is skipped and reported in `meta.warnings` rather than failing the export.
+Detection is cheap — it inspects the first few lines, not the file — and requires **two or more**
+resource lines among them, so a single JSON resource still goes to the FHIR JSON adapter while a
+corrupt line near the top does not make the export undetectable. A line that is not a JSON resource
+is skipped and reported in `meta.warnings` rather than failing the export.
 
 For a file too large to hold in memory, work line by line. Every piece of the library has a
 per-resource entry point, so nothing needs the whole set at once:

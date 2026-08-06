@@ -47,6 +47,23 @@ describe('ndjsonParser.canParse', () => {
   it('tolerates blank lines and trailing newlines', () => {
     expect(ndjsonParser.canParse(`${line('a')}\n\n${line('b')}\n`)).toBe(true);
   });
+
+  it.each([
+    ['first', ['bad', line('b'), line('c')]],
+    ['second', [line('a'), 'bad', line('c')]],
+    ['first two', ['bad', 'bad', line('c'), line('d')]],
+  ])('still detects when the %s line is corrupt', (_where, lines) => {
+    // Parsing skips a corrupt line, so detection has to survive one too —
+    // otherwise a single bad line near the top makes the whole export
+    // undetectable, which is the case the leniency exists for.
+    expect(ndjsonParser.canParse(lines.join('\n'))).toBe(true);
+  });
+
+  it('needs two resources within the window, not just one', () => {
+    // A single resource followed by junk is not NDJSON — one resource is
+    // FHIR JSON, and this keeps the adapters from fighting over it.
+    expect(ndjsonParser.canParse([line('a'), 'bad', 'bad', 'bad', 'bad'].join('\n'))).toBe(false);
+  });
 });
 
 describe('ndjsonParser.parse', () => {
@@ -94,6 +111,17 @@ describe('NDJSON through the default normalizer', () => {
 
   it('still routes a single JSON resource to the FHIR JSON adapter', () => {
     expect(createDefaultNormalizer().detectFormat(line('a'))).toBe(SOURCE_FORMAT.FHIR_JSON);
+  });
+
+  it('detects and parses an export whose second line is corrupt', () => {
+    // End to end, through detection rather than by calling the adapter — the
+    // path that 1.12.0 got wrong.
+    const raw = [line('a'), 'corrupt line', line('c')].join('\n');
+    const { bundle, meta } = createDefaultNormalizer().parse(raw);
+
+    expect(meta.sourceFormat).toBe(SOURCE_FORMAT.NDJSON);
+    expect(bundle.entry).toHaveLength(2);
+    expect(meta.warnings.some((w) => w.includes('skipped'))).toBe(true);
   });
 
   it('runs the cross-version stage over every line', () => {
