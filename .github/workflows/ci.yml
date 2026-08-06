@@ -36,8 +36,8 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # Must run first: the playground resolves fhir-normalize's types from
-      # dist/, so typecheck and build both fail on a clean checkout without it.
+      # Must run first: the playground resolves fhir-normalize from dist/, so
+      # typecheck, test and build all fail on a clean checkout without it.
       - name: Build library
         run: pnpm --filter fhir-normalize build
 
