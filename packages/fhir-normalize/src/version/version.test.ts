@@ -202,3 +202,53 @@ describe('mixed and nested resources', () => {
     expect(warnings[0]).toMatch(/^Patient \[0\]:/);
   });
 });
+
+describe('a value that cannot be expressed in R4 is dropped, not written', () => {
+  it.each([
+    [
+      'Observation.comment that is not a string',
+      { resourceType: 'Observation', status: 'final', comment: 42 },
+      'note',
+    ],
+    [
+      'Observation.related with no usable targets',
+      { resourceType: 'Observation', status: 'final', related: ['nonsense'] },
+      'hasMember',
+    ],
+    [
+      'Encounter.class carrying only text',
+      { resourceType: 'Encounter', status: 'in-progress', class: [{ text: 'ambulatory' }] },
+      'class',
+    ],
+    [
+      'Encounter.class of bare strings',
+      { resourceType: 'Encounter', status: 'in-progress', class: ['AMB'] },
+      'class',
+    ],
+  ])('%s leaves no trace in the output', (_label, input, target) => {
+    // Writing these through would produce a bundle that claims to be R4 while
+    // holding a value R4 does not allow there — a number in Annotation[], an
+    // empty array (which FHIR JSON forbids), a Coding carrying `text`.
+    const { resource, warnings } = migrate(input);
+
+    expect(resource[target]).toBeUndefined();
+    expect(warnings.some((warning) => warning.includes('could not be expressed'))).toBe(true);
+  });
+
+  it('names the R4 element it could not reach, rather than blaming the spec', () => {
+    const { warnings } = migrate({ resourceType: 'Observation', status: 'final', comment: 42 });
+
+    expect(warnings[0]).toContain('could not be expressed as R4 "note"');
+    // `comment` does have an R4 equivalent; this value just was not one.
+    expect(warnings[0]).not.toContain('has no R4 equivalent');
+  });
+
+  it('still reports a genuinely absent element as having no equivalent', () => {
+    const { warnings } = migrate({
+      resourceType: 'Patient',
+      animal: { species: { text: 'dog' } },
+    });
+
+    expect(warnings[0]).toContain('has no R4 equivalent');
+  });
+});
