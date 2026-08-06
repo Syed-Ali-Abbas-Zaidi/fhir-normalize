@@ -28,13 +28,13 @@ import type { Bundle, FhirResource } from 'fhir-normalize';
 
 ## Status
 
-`1.12.1`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform`, and the `Normalizer`
+`2.0.0`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform`, and the `Normalizer`
 methods — is stable under semver; anything breaking lands in a major.
 
 | Format | Status |
 | --- | --- |
 | FHIR JSON (resource, Bundle, or array) | ✅ Supported |
-| FHIR XML | ✅ Supported |
+| FHIR XML | ✅ Supported (opt in via `fhir-normalize/xml`) |
 | NDJSON (Bulk Data `$export`) | ✅ Supported |
 | Cross-version STU3 / R5 → R4 | ⚠️ Partial (14 curated differences — [see coverage](#older-and-newer-releases-land-on-r4)) |
 | Simplified view (choice types resolved) | ✅ Supported (every section, 147 types) |
@@ -65,39 +65,44 @@ Ships ESM + CJS with generated type declarations. No runtime configuration requi
 
 ### Import paths and bundle size
 
-The package has three entry points. The root re-exports everything, so a single import still works;
-the subpaths let a bundler leave out what you do not use.
+The package has four entry points. The root re-exports the JSON-family parsers and the simplified
+and de-identify layers, so a single import still works; the subpaths let a bundler leave out what
+you do not use.
 
 ```ts
 import { createDefaultNormalizer } from 'fhir-normalize';              // parsing
 import { simplifyBundle, formatShape } from 'fhir-normalize/simplified';
 import { deIdentifyBundle } from 'fhir-normalize/deidentify';
+import { fhirXmlParser } from 'fhir-normalize/xml';                    // opt in
 ```
 
 The 147 resource shape tables are the bulk of the library, and they only ship if you import from
 `/simplified`. Measured on a real install, minified:
 
-| What you import | Library code |
+| What you import | Bundled |
 | --- | --- |
-| parsing only | ~16 KB |
-| parsing + the simplified view | ~81 KB |
+| parsing only | **~13 KB** |
+| parsing + the simplified view | ~78 KB |
+| parsing + XML | ~77 KB |
+
+These are what a bundler actually emits, `fast-xml-parser` included — not library code with the
+dependency excluded.
 
 The simplified view grew in 1.10.0, when the tables went from partial to complete coverage of every
 element of every resource they shape, and again in 1.11.0 with the permitted types on each choice.
 Parsing-only bundles are unaffected.
 
-`fast-xml-parser` adds about 61 KB on top of those figures, and **any import from the root pulls it
-in** — including one that never touches XML. Registering only the adapters you want does not help:
+**XML lives at `fhir-normalize/xml` and is not registered by default.** `fast-xml-parser` is ~61 KB
+and does not declare itself side-effect-free, so while the root module imported it, every consumer
+linked it whether or not they parsed XML — four times the size of the library. Adding it back is one
+line:
 
 ```ts
-// Still links fast-xml-parser, despite never registering the XML adapter.
-const normalizer = new Normalizer().register(fhirJsonParser).register(ndjsonParser);
-```
+import { createDefaultNormalizer } from 'fhir-normalize';
+import { fhirXmlParser } from 'fhir-normalize/xml';
 
-The root module statically imports the XML adapter, and `fast-xml-parser` does not declare itself
-side-effect-free, so no bundler can drop it. Measured with esbuild: 10.8 KB of library code becomes
-71.8 KB once it is linked. Removing that needs the XML adapter behind its own entry point, which
-would change what `createDefaultNormalizer` supports — so it is waiting for a major.
+const normalizer = createDefaultNormalizer().register(fhirXmlParser);
+```
 
 ## Usage
 
@@ -243,6 +248,27 @@ observation.display;            // 'Body Weight · 74.5 kg'
 observation.fields.value.kind;  // 'quantity'
 observation.fields.value.text;  // '74.5 kg'
 ```
+
+**The fields are typed per resource.** Pass a typed resource and `simplifyResource` infers which
+fields exist and what each one is, from the same tables that do the work at runtime:
+
+```ts
+import type { Observation } from 'fhir/r4';   // re-exported by @types/fhir, already a dependency
+import { simplifyResource } from 'fhir-normalize/simplified';
+
+const { fields } = simplifyResource(observation);
+
+fields.code.text;        // string      — code is a CodeableConcept
+fields.performer[0].id;  // string|null — performer is a Reference list
+fields.value;            // the nine types R4 permits on Observation.value[x],
+                         // so `switch (fields.value.kind)` is exhaustive
+fields.notAThing;        // compile error
+```
+
+The types are generated from the shape tables, and a test regenerates them and fails if the
+committed output differs — so they cannot drift from what the code returns. Name one directly as
+`ObservationFields`, or look it up with `FieldsOf<'Observation'>`. Input whose type is not known
+statically still gets the loose map, so `simplifyResource(JSON.parse(text))` behaves as before.
 
 Whatever the input used, the value lands on **one key** with a `kind` discriminant:
 
@@ -493,6 +519,49 @@ normalizer.register(csvParser);
 ```
 
 Registering an already-registered format replaces it, so you can also override a built-in parser.
+
+## Migrating from 1.x
+
+Two breaking changes. Most projects need one line, or none.
+
+**1. XML is no longer registered by default.** `fast-xml-parser` is ~61 KB and cannot be
+tree-shaken, so importing it from the root cost every consumer four times the size of the library —
+including the majority who never parse XML. Parsing-only bundles drop from ~77 KB to ~13 KB.
+
+```diff
+  import { createDefaultNormalizer } from 'fhir-normalize';
++ import { fhirXmlParser } from 'fhir-normalize/xml';
+
+- const normalizer = createDefaultNormalizer();
++ const normalizer = createDefaultNormalizer().register(fhirXmlParser);
+```
+
+If you do not parse XML, do nothing. `detectFormat` returns `null` for XML until the adapter is
+registered, and `parse` throws `UnsupportedFormatError` — both loud, neither silent.
+
+**2. `simplifyResource` returns typed fields for a typed input.** Passing a `Patient` gives you
+`PatientFields` instead of a string-indexed map. This is only a compile-time change — the runtime
+output is byte-identical — but it will surface real mistakes:
+
+```ts
+const { fields } = simplifyResource(patient);
+
+fields.name;        // NormalizedName[] | undefined — was a three-way union
+fields.notAThing;   // now a compile error
+```
+
+Two things to know. A field is optional, because a resource need not carry it — so `fields.name` is
+possibly `undefined` where before it was a union you had to narrow anyway. And indexing with a
+computed key no longer typechecks; if you need that, widen explicitly:
+
+```ts
+const loose: SimplifiedFields = fields;
+loose[someKey];
+```
+
+Nothing changes for input whose type is not known statically. `simplifyResource(JSON.parse(text))`
+and `simplifyBundle(bundle)` both still give the loose map, because a Bundle's entries are
+heterogeneous and there is nothing to infer from.
 
 ## API
 

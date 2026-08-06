@@ -5,6 +5,53 @@ All notable changes to `fhir-normalize`.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] — 2026-08-06
+
+Two breaking changes, both of which had been deferred waiting for a major. See
+[Migrating from 1.x](README.md#migrating-from-1x) — most projects need one line, or none.
+
+### Changed — breaking
+
+- **XML is no longer registered by default.** The adapter moved to `fhir-normalize/xml`.
+  `fast-xml-parser` is ~61 KB and does not declare itself side-effect-free, so while the root module
+  imported it, no bundler could drop it — every consumer paid for XML support whether or not they
+  used it, four times the size of the library itself.
+
+  **Parsing-only bundles drop from ~77 KB to ~13 KB**, measured with esbuild on real output.
+  Restoring XML is one line: `createDefaultNormalizer().register(fhirXmlParser)`. Until it is
+  registered, `detectFormat` returns `null` for XML and `parse` throws `UnsupportedFormatError` —
+  loud, not silent.
+
+- **`simplifyResource` returns typed fields when the input type is known.** Passing a `Patient`
+  yields `PatientFields` rather than a string-indexed map, so `fields.name` is
+  `NormalizedName[] | undefined` and `fields.notAThing` is a compile error. A choice narrows to the
+  types R4 permits there, which makes `switch (fields.value.kind)` exhaustive.
+
+  Compile-time only — the runtime output is byte-identical. Input whose type is not known
+  statically, and `simplifyBundle`, still give the loose map.
+
+### Added
+
+- Per-resource field types — `PatientFields`, `ObservationFields`, … — plus `ResourceFieldMap`,
+  `FieldsOf<T>`, `SimplifiedResourceOf<T>` and `PrimitiveValue`. Generated from the shape tables by
+  `scripts/generate-field-types.mjs`; a test regenerates them and fails if the committed output
+  differs, so they cannot drift from what the code returns.
+- `TYPE_SUFFIX_KIND` is exported. It is how `resolveChoice` decides what a suffix means, and the
+  generated types are derived from it.
+- Type-level tests (`*.test-d.ts`) run as part of `pnpm test`. The generated types are only ever
+  wrong at compile time, so nothing else would catch a mistake in them.
+
+### Fixed
+
+- The NDJSON skip warning read "1 line were not valid JSON objects and were skipped". The singular
+  case now reads "Line 2 was not a valid JSON object and was skipped."
+
+### Notes
+
+- `dist/index.d.ts` now pulls a ~175 KB declaration chunk, since the root re-exports the simplified
+  layer. Types only — no runtime cost — but it is a typecheck cost for consumers who import the
+  root and never touch the simplified view. `fhir-normalize/xml` and `/deidentify` are unaffected.
+
 ## [1.12.1] — 2026-08-06
 
 ### Fixed

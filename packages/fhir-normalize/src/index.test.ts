@@ -15,21 +15,32 @@ import {
   VERSION_TRANSFORM_NAME,
 } from './index';
 import { patientFixture } from './parsers/fhir-json/__fixtures__';
+import { fhirXmlParser } from './parsers/fhir-xml';
+
+/**
+ * XML is not registered by default in 2.0 — `fast-xml-parser` is ~61KB and is
+ * not side-effect-free, so importing it from the root linked it into every
+ * consumer's bundle. Adding it back is one call, which is what these exercise.
+ */
+const withXml = () => createDefaultNormalizer().register(fhirXmlParser);
 
 describe('createDefaultNormalizer', () => {
-  it('registers every built-in parser, JSON first so the stricter check runs first', () => {
+  it('registers the JSON-family parsers, JSON first so the stricter check runs first', () => {
     // Order is detection order. NDJSON goes last because a single JSON
     // resource is legitimately both formats, and FHIR JSON should keep it.
     expect(createDefaultNormalizer().formats).toEqual([
       SOURCE_FORMAT.FHIR_JSON,
-      SOURCE_FORMAT.FHIR_XML,
       SOURCE_FORMAT.NDJSON,
     ]);
   });
 
+  it('leaves XML out until it is asked for', () => {
+    expect(createDefaultNormalizer().detectFormat('<Patient><id value="x"/></Patient>')).toBeNull();
+    expect(withXml().formats).toContain(SOURCE_FORMAT.FHIR_XML);
+  });
+
   it.each([
     ['JSON', '{"resourceType":"Patient","id":"x"}', SOURCE_FORMAT.FHIR_JSON],
-    ['XML', '<Patient><id value="x"/></Patient>', SOURCE_FORMAT.FHIR_XML],
     [
       'NDJSON',
       '{"resourceType":"Patient","id":"x"}\n{"resourceType":"Patient","id":"y"}',
@@ -40,7 +51,7 @@ describe('createDefaultNormalizer', () => {
   });
 
   it('produces the same canonical shape from equivalent JSON and XML', () => {
-    const normalizer = createDefaultNormalizer();
+    const normalizer = withXml();
     const fromJson = normalizer.parse('{"resourceType":"Patient","id":"x","gender":"male"}');
     const fromXml = normalizer.parse('<Patient><id value="x"/><gender value="male"/></Patient>');
 
@@ -77,7 +88,7 @@ describe('createDefaultNormalizer — cross-version', () => {
   });
 
   it('normalizes STU3 XML all the way to R4, crossing both serialization and release', () => {
-    const { bundle, meta } = createDefaultNormalizer().parse(
+    const { bundle, meta } = withXml().parse(
       `<Observation xmlns="http://hl7.org/fhir">
          <id value="obs-1"/>
          <status value="final"/>
@@ -96,7 +107,7 @@ describe('createDefaultNormalizer — cross-version', () => {
   });
 
   it('reaches the same R4 resource from STU3 JSON and STU3 XML', () => {
-    const normalizer = createDefaultNormalizer();
+    const normalizer = withXml();
     const fromJson = normalizer.parse(
       '{"resourceType":"Observation","id":"o","status":"final","context":{"reference":"Encounter/e"}}',
     );

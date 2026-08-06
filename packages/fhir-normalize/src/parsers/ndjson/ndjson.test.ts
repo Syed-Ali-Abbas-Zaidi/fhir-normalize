@@ -80,8 +80,7 @@ describe('ndjsonParser.parse', () => {
     const { bundle, meta } = ndjsonParser.parse(`${line('a')}\nnot json\n${line('c')}`);
 
     expect(bundle.entry).toHaveLength(2);
-    expect(meta.warnings[0]).toContain('1 line');
-    expect(meta.warnings[0]).toContain('line 2');
+    expect(meta.warnings[0]).toBe('Line 2 was not a valid JSON object and was skipped.');
   });
 
   it('counts skipped lines by input line, not by resource', () => {
