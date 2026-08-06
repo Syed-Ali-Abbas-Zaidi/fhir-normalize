@@ -18,7 +18,7 @@
     "url": "git+https://github.com/Syed-Ali-Abbas-Zaidi/fhir-normalize.git",
     "directory": "packages/fhir-normalize"
   },
-  "homepage": "https://github.com/Syed-Ali-Abbas-Zaidi/fhir-normalize#readme",
+  "homepage": "https://fhir-normalize-playground.vercel.app",
   "bugs": {
     "url": "https://github.com/Syed-Ali-Abbas-Zaidi/fhir-normalize/issues"
   },
