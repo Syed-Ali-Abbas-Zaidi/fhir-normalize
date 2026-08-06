@@ -2,13 +2,14 @@ import { SOURCE_FORMAT } from 'fhir-normalize';
 import type { ModeOption, SampleConfig, ShapeFormat, TabConfig, ThemeOption } from '@/types';
 
 /**
- * Parse modes offered by the toggle. The two explicit modes are the library's
- * own format tokens, so the control can never drift from what is registered.
+ * Parse modes offered by the toggle. The explicit modes are the library's own
+ * format tokens, so the control can never drift from what is registered.
  */
 export const PARSE_MODE = {
   AUTO: 'auto',
   FHIR_JSON: SOURCE_FORMAT.FHIR_JSON,
   FHIR_XML: SOURCE_FORMAT.FHIR_XML,
+  NDJSON: SOURCE_FORMAT.NDJSON,
 } as const;
 
 export const OUTPUT_TAB = {
@@ -104,6 +105,7 @@ export const MODE_OPTIONS: readonly ModeOption[] = [
   { value: PARSE_MODE.AUTO, label: 'auto' },
   { value: PARSE_MODE.FHIR_JSON, label: 'json' },
   { value: PARSE_MODE.FHIR_XML, label: 'xml' },
+  { value: PARSE_MODE.NDJSON, label: 'ndjson' },
 ];
 
 export const TAB_OPTIONS: readonly TabConfig[] = [
@@ -118,6 +120,7 @@ export const TAB_OPTIONS: readonly TabConfig[] = [
 export const FORMAT_LABEL: Readonly<Record<string, string>> = {
   [SOURCE_FORMAT.FHIR_JSON]: 'FHIR JSON',
   [SOURCE_FORMAT.FHIR_XML]: 'FHIR XML',
+  [SOURCE_FORMAT.NDJSON]: 'NDJSON',
 };
 
 /** Shown in the detect badge when nothing matches. */
@@ -250,6 +253,26 @@ const stu3Payload = JSON.stringify(
 );
 
 /**
+ * Newline-delimited JSON, one resource per line — the shape a FHIR Bulk Data
+ * `$export` returns. Deliberately not pretty-printed: the newlines are the
+ * format.
+ */
+const ndjsonPayload = [
+  { resourceType: 'Patient', id: 'pat-1', name: [{ family: 'Ahmed', given: ['Sara'] }] },
+  { resourceType: 'Patient', id: 'pat-2', name: [{ family: 'Khan', given: ['Ali'] }] },
+  {
+    resourceType: 'Observation',
+    id: 'obs-1',
+    status: 'final',
+    code: { text: 'Body Weight' },
+    subject: { reference: 'Patient/pat-1' },
+    valueQuantity: { value: 61.2, unit: 'kg' },
+  },
+]
+  .map((resource) => JSON.stringify(resource))
+  .join('\n');
+
+/**
  * Single source for the sample buttons. Each one demonstrates a different
  * capability, and `hint` says which — a sample nobody understands the point of
  * is just filler.
@@ -276,6 +299,11 @@ export const SAMPLES: readonly SampleConfig[] = [
     label: 'Observation · STU3',
     payload: stu3Payload,
     hint: 'An older release, migrated to R4',
+  },
+  {
+    label: 'Bulk · NDJSON',
+    payload: ndjsonPayload,
+    hint: 'One resource per line, as a Bulk Data export arrives',
   },
 ];
 
