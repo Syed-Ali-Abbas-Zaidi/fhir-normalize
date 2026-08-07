@@ -95,10 +95,26 @@ type Decision =
   | { action: typeof DEID_ACTION.PSEUDONYMIZE; value: string; label: string }
   | { action: typeof DEID_ACTION.RECURSE };
 
-/** Whether the record this element sits on is a Reference or an Identifier. */
+/**
+ * An Attachment, identified by structure. `title` has to be judged in context:
+ * it is a document label here — "Referral for Sara Ahmed" — and an artefact
+ * name on the 33 resources that carry a `title` you must keep.
+ *
+ * Keyed off the elements no canonical resource has. `url` alone would not do:
+ * `ValueSet` and `ActivityDefinition` carry both `url` and `title`.
+ */
+const isAttachment = (record: UnknownRecord): boolean =>
+  record.contentType !== undefined ||
+  record.data !== undefined ||
+  record.size !== undefined ||
+  record.hash !== undefined ||
+  record.creation !== undefined;
+
+/** Whether the record this element sits on is a Reference, Identifier, or Attachment. */
 interface Context {
   reference: boolean;
   identifier: boolean;
+  attachment: boolean;
 }
 
 /**
@@ -139,6 +155,19 @@ const decideContextual = (
     return { action: DEID_ACTION.PSEUDONYMIZE, value: surrogate(value, salt), label: key };
   }
 
+  // `Binary.data` and `Attachment.data` are base64 of a whole document — a
+  // scanned letter naming the patient is prose too, just encoded, and the
+  // free-text default exists precisely because prose cannot be policed.
+  // `Consent.provision.data` shares the name but is a backbone, so it is not a
+  // string and never reaches here.
+  if (key === 'data') {
+    return { action: DEID_ACTION.REDACT, label: 'Attachment.data' };
+  }
+
+  if (context.attachment && key === 'title') {
+    return { action: DEID_ACTION.REDACT, label: 'Attachment.title' };
+  }
+
   return null;
 };
 
@@ -161,7 +190,11 @@ const decide = (key: string, value: unknown, context: Context, settings: Setting
 
 const scrubRecord = (record: UnknownRecord, settings: Settings, tally: Tally): UnknownRecord => {
   const result: UnknownRecord = {};
-  const context: Context = { reference: isReference(record), identifier: isIdentifier(record) };
+  const context: Context = {
+    reference: isReference(record),
+    identifier: isIdentifier(record),
+    attachment: isAttachment(record),
+  };
 
   for (const [key, value] of Object.entries(record)) {
     const decision = decide(key, value, context, settings);

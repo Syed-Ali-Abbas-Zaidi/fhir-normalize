@@ -53,6 +53,13 @@ export const REDACT_ELEMENT: ReadonlySet<string> = new Set([
   'url',
   'nameReference',
   'patientInstruction',
+  // `Location.position` is latitude and longitude, which fixes a building far
+  // more precisely than the `address` two lines up. Removing one and keeping
+  // the other removes nothing.
+  'position',
+  // `Device.udiCarrier` carries the serial number again — `(21)` is the AIDC
+  // application identifier for exactly the `serialNumber` above.
+  'udiCarrier',
 ]);
 
 /** Clinician-authored prose. Governed by the `freeText` option. */

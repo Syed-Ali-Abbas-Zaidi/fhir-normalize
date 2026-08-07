@@ -286,3 +286,91 @@ describe('deIdentifyResource', () => {
     expect(resource.id).toBe(surrogate('pat-1', 'fixed'));
   });
 });
+
+describe('an identifier is removed in every form it takes', () => {
+  const scrub = (resource: object) =>
+    deIdentifyResource(resource as never).resource as unknown as Record<string, unknown>;
+
+  it('removes the coordinates as well as the address', () => {
+    // Latitude and longitude fix a building to about ten metres — more
+    // precisely than the address the same pass deletes.
+    expect(
+      scrub({ resourceType: 'Location', position: { latitude: 42.3601, longitude: -71.0589 } }),
+    ).toEqual({ resourceType: 'Location' });
+  });
+
+  it('removes the UDI as well as the serial number', () => {
+    // `(21)` is the AIDC application identifier for the serial number, so the
+    // carrier repeats what `serialNumber` already gave up.
+    expect(
+      scrub({
+        resourceType: 'Device',
+        serialNumber: 'SN-99',
+        udiCarrier: [{ deviceIdentifier: '0847', carrierHRF: '(01)0084(21)SN-99' }],
+      }),
+    ).toEqual({ resourceType: 'Device' });
+  });
+
+  it('removes an embedded document, which is prose that happens to be encoded', () => {
+    const scrubbed = scrub({
+      resourceType: 'Binary',
+      contentType: 'application/pdf',
+      // Decodes to "%PDF-1.4\n% Sara Ahmed".
+      data: 'JVBERi0xLjQKJSBTYXJhIEFobWVk',
+    });
+
+    expect(scrubbed.data).toBeUndefined();
+    expect(scrubbed.contentType).toBe('application/pdf');
+  });
+
+  it('removes an attachment title, which labels the document with its subject', () => {
+    const scrubbed = scrub({
+      resourceType: 'DocumentReference',
+      content: [
+        { attachment: { contentType: 'application/pdf', title: 'Referral for Sara Ahmed' } },
+      ],
+    });
+
+    expect(scrubbed).toEqual({
+      resourceType: 'DocumentReference',
+      content: [{ attachment: { contentType: 'application/pdf' } }],
+    });
+  });
+
+  it('reports what it removed under a name that says where it was', () => {
+    const { report } = deIdentifyResource({
+      resourceType: 'Binary',
+      contentType: 'text/plain',
+      data: 'U2FyYQ==',
+    } as never);
+
+    expect(report.elements).toContain('Attachment.data');
+  });
+});
+
+describe('the new rules do not take what they should leave', () => {
+  const scrub = (resource: object) =>
+    deIdentifyResource(resource as never).resource as unknown as Record<string, unknown>;
+
+  it('keeps an artefact title, which is not a document label', () => {
+    // `title` is on 33 R4 resources as the name of the thing itself. Only an
+    // Attachment's `title` describes content, which is why the rule is
+    // contextual rather than a name in the redact list.
+    expect(
+      scrub({ resourceType: 'ValueSet', url: 'http://example.org/vs', title: 'Body Weight Codes' }),
+    ).toMatchObject({ title: 'Body Weight Codes' });
+  });
+
+  it('keeps Consent.provision.data, which shares the name but is a backbone', () => {
+    const scrubbed = scrub({
+      resourceType: 'Consent',
+      provision: {
+        data: [{ meaning: 'instance', reference: { reference: 'DocumentReference/d1' } }],
+      },
+    });
+    const provision = scrubbed.provision as { data: { meaning: string }[] };
+
+    expect(provision.data).toHaveLength(1);
+    expect(provision.data[0]?.meaning).toBe('instance');
+  });
+});

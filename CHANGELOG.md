@@ -5,6 +5,33 @@ All notable changes to `fhir-normalize`.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] — 2026-08-07
+
+### Fixed
+
+- **De-identification removed one form of an identifier while keeping another.** The redact list is
+  matched on element names, and three identifiers appear under a name that was not on it:
+
+  | Removed before | Survived before |
+  | --- | --- |
+  | `Location.address` | `Location.position` — latitude and longitude, which fix a building to about ten metres |
+  | `Device.serialNumber` | `Device.udiCarrier` — whose `(21)` segment *is* the serial number |
+  | free text, by default | `Attachment.data` / `Binary.data` — a scanned letter is prose, just base64 |
+
+  All four are now removed, along with `Attachment.title`, which labels a document with its subject
+  ("Referral for Sara Ahmed"). Pass `keep: ['position']` — or any element name — to override.
+
+  A minor rather than a patch: this changes what de-identification does to **valid** input, not just
+  malformed input, so anyone relying on coordinates surviving the pass will notice.
+
+### Notes
+
+- `title` is contextual, not a redact-list entry. It names an artefact on 33 R4 resources —
+  `ValueSet.title`, `ActivityDefinition.title` — and only describes content on an Attachment. It is
+  told apart by structure, the same way `Coding.display` is kept and `Reference.display` removed.
+- `Consent.provision.data` shares a name with `Attachment.data` and is unaffected: it is a backbone
+  element rather than a base64 string, and the rule keys on the value.
+
 ## [2.0.2] — 2026-08-06
 
 ### Fixed
