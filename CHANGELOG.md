@@ -39,6 +39,14 @@ follows [semantic versioning](https://semver.org/spec/v2.0.0.html).
   It emits no CSV text. Quoting, escaping, and encoding are solved problems, and rows hand off to
   whichever library already solved them.
 
+- **A Rows tab in the [playground](https://fhir-normalize-playground.vercel.app)**, so the
+  projection can be tried against a payload rather than read about. It renders a table per resource
+  type with the three controls `toRows` exposes — `lists`, `cells`, and `explode` — and copies any
+  table out as CSV, which is the library's own advice about who should own the quoting. The explode
+  picker lists the repeating fields the parsed payload actually carries, so every option in it
+  changes what you see. A `Blood pressure` sample was added alongside it: one Observation with two
+  components, which is the case the flat projection has to answer for.
+
 ### Notes
 
 - `toRows` is exported from `fhir-normalize/simplified` and **not** from the root entry point,
@@ -47,6 +55,9 @@ follows [semantic versioning](https://semver.org/spec/v2.0.0.html).
 - `explode` takes one field, not a list: exploding two repeating elements at once produces their
   cross product rather than a grain anyone asked for. A resource that lacks the field still
   produces its row, so the table's contents do not depend on which field the caller chose.
+- The playground's row controls are built from `LIST_MODE` and `CELL_MODE` rather than from strings
+  of their own, and a test asserts the two sets match — the same arrangement that keeps its parse
+  modes in step with the registered formats.
 
 ## [2.1.0] — 2026-08-07
 

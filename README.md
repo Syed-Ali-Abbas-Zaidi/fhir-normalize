@@ -701,6 +701,11 @@ heterogeneous and there is nothing to infer from.
 on the left, watch it come out as the standard shape on the right, with the detected format, the
 extracted resources, and the warnings each on their own tab.
 
+**Rows** is where to try the tabular projection without writing any code: it renders a table per
+resource type, with `lists`, `cells`, and `explode` as controls, and copies any table out as CSV.
+Load the `Blood pressure` sample and set explode to `component` to watch one Observation become a
+row for systolic and a row for diastolic.
+
 It imports `fhir-normalize` from the workspace rather than a published build, so the demo cannot
 drift from the library — change a parser and the page reflects it.
 

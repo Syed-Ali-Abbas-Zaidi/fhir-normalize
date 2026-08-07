@@ -1,5 +1,14 @@
 import { SOURCE_FORMAT } from 'fhir-normalize';
-import type { ModeOption, SampleConfig, ShapeFormat, TabConfig, ThemeOption } from '@/types';
+import { CELL_MODE, LIST_MODE } from 'fhir-normalize/simplified';
+import type {
+  ModeOption,
+  RowCellOption,
+  RowListOption,
+  SampleConfig,
+  ShapeFormat,
+  TabConfig,
+  ThemeOption,
+} from '@/types';
 
 /**
  * Parse modes offered by the toggle. The explicit modes are the library's own
@@ -15,6 +24,7 @@ export const PARSE_MODE = {
 export const OUTPUT_TAB = {
   STANDARD: 'standard',
   NORMALIZED: 'normalized',
+  ROWS: 'rows',
   SHAPE: 'shape',
   EXTRACTED: 'extracted',
   WARNINGS: 'warnings',
@@ -111,6 +121,7 @@ export const MODE_OPTIONS: readonly ModeOption[] = [
 export const TAB_OPTIONS: readonly TabConfig[] = [
   { value: OUTPUT_TAB.STANDARD, label: 'Standard shape' },
   { value: OUTPUT_TAB.NORMALIZED, label: 'Normalized' },
+  { value: OUTPUT_TAB.ROWS, label: 'Rows' },
   { value: OUTPUT_TAB.SHAPE, label: 'Shape' },
   { value: OUTPUT_TAB.EXTRACTED, label: 'Extracted' },
   { value: OUTPUT_TAB.WARNINGS, label: 'Warnings' },
@@ -155,6 +166,34 @@ export const SHAPE_FORMAT_OPTIONS: readonly { value: ShapeFormat; label: string 
 
 /** Where the Shape tab starts before anything has been parsed. */
 export const DEFAULT_SHAPE_TYPE = 'Observation';
+
+/* Rows ------------------------------------------------------------------- */
+
+/**
+ * The row controls are built from the library's own option tokens, the same way
+ * the parse modes are built from its format tokens — so a mode added to
+ * `toRows` fails the in-step test here until the tab offers it.
+ */
+export const ROW_LIST_OPTIONS: readonly RowListOption[] = [
+  { value: LIST_MODE.FIRST, label: 'first + count' },
+  { value: LIST_MODE.INDEX, label: 'indexed' },
+];
+
+export const ROW_CELL_OPTIONS: readonly RowCellOption[] = [
+  { value: CELL_MODE.TEXT, label: 'text' },
+  { value: CELL_MODE.TYPED, label: 'typed' },
+];
+
+/** The `explode` picker's "off" entry. Empty, because no field is named that. */
+export const NO_EXPLODE = '';
+
+export const NO_EXPLODE_LABEL = 'none';
+
+/** Shown when a bundle parsed but produced no rows to project. */
+export const NO_ROWS_TEXT = 'Nothing to project into rows in this bundle.';
+
+/** An empty cell reads better as nothing than as the word `null`. */
+export const EMPTY_CELL = '';
 
 const patientPayload = JSON.stringify(
   {
@@ -253,6 +292,37 @@ const stu3Payload = JSON.stringify(
 );
 
 /**
+ * One Observation carrying two measurements in a backbone element — the case
+ * that makes a flat projection interesting. In the Rows tab, `explode` on
+ * `component` turns it into a row for systolic and a row for diastolic.
+ */
+const bloodPressurePayload = JSON.stringify(
+  {
+    resourceType: 'Observation',
+    id: 'obs-bp',
+    status: 'final',
+    code: {
+      text: 'Blood pressure panel',
+      coding: [{ system: 'http://loinc.org', code: '85354-9', display: 'Blood pressure panel' }],
+    },
+    subject: { reference: 'Patient/example-1' },
+    effectiveDateTime: '2026-07-20T09:30:00Z',
+    component: [
+      {
+        code: { text: 'Systolic', coding: [{ system: 'http://loinc.org', code: '8480-6' }] },
+        valueQuantity: { value: 118, unit: 'mmHg', system: 'http://unitsofmeasure.org' },
+      },
+      {
+        code: { text: 'Diastolic', coding: [{ system: 'http://loinc.org', code: '8462-4' }] },
+        valueQuantity: { value: 76, unit: 'mmHg', system: 'http://unitsofmeasure.org' },
+      },
+    ],
+  },
+  null,
+  2,
+);
+
+/**
  * Newline-delimited JSON, one resource per line — the shape a FHIR Bulk Data
  * `$export` returns. Deliberately not pretty-printed: the newlines are the
  * format.
@@ -285,6 +355,11 @@ export const SAMPLES: readonly SampleConfig[] = [
     hint: 'A measurement with a typed quantity',
   },
   { label: 'Bundle', payload: bundlePayload, hint: 'An R4 Bundle, passed through as-is' },
+  {
+    label: 'Blood pressure',
+    payload: bloodPressurePayload,
+    hint: 'Two measurements in one resource — try Rows · explode',
+  },
   {
     label: 'Patient · XML',
     payload: patientXmlPayload,
