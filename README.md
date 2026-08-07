@@ -31,7 +31,7 @@ import type { Bundle, FhirResource } from 'fhir-normalize';
 
 ## Status
 
-`2.0.2`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform`, and the `Normalizer`
+`2.1.0`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform`, and the `Normalizer`
 methods — is stable under semver; anything breaking lands in a major.
 
 | Format | Status |
@@ -425,6 +425,13 @@ resolves** — a Patient and every reference to it get the same surrogate:
 Clinical content survives: the LOINC code, `74.5 kg`, and `status` are all untouched. `Coding.display`
 ("Body Weight") is kept because it is vocabulary; `Reference.display` ("Ali Khan") is removed because
 it is usually a person. Those share an element name and are told apart by structure.
+
+The same reasoning covers the forms an identifier takes under a different name. `Location.position`
+goes with `Location.address`, since latitude and longitude fix a building more precisely than the
+street does. `Device.udiCarrier` goes with `Device.serialNumber`, because the carrier string repeats
+the serial. `Attachment.data` and `Binary.data` go because a scanned letter is prose that happens to
+be base64, and `Attachment.title` goes with it — while `title` on the 33 resources where it names an
+artefact is kept, told apart by structure like the two `display`s.
 
 ```ts
 createDefaultNormalizer({
