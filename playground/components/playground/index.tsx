@@ -33,6 +33,14 @@ export const Playground = () => {
     shapeFormat,
     setShapeFormat,
     shapeText,
+    rowTables,
+    rowLists,
+    setRowLists,
+    rowCells,
+    setRowCells,
+    rowExplode,
+    setRowExplode,
+    explodableFields,
     warnings,
   } = usePlayground();
 
@@ -75,6 +83,14 @@ export const Playground = () => {
             onShapeResourceTypeChange={setShapeResourceType}
             shapeFormat={shapeFormat}
             onShapeFormatChange={setShapeFormat}
+            rowTables={rowTables}
+            rowLists={rowLists}
+            onRowListsChange={setRowLists}
+            rowCells={rowCells}
+            onRowCellsChange={setRowCells}
+            rowExplode={rowExplode}
+            onRowExplodeChange={setRowExplode}
+            explodableFields={explodableFields}
             warnings={warnings}
             tab={tab}
             onTabChange={setTab}

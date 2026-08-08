@@ -8,6 +8,7 @@ import type { OutputTab } from '@/types';
 import { ExtractedView } from './extracted-view';
 import { NormalizedView } from './normalized-view';
 import styles from './output-panel.module.css';
+import { RowsView } from './rows-view';
 import { ShapeView } from './shape-view';
 import { StandardView } from './standard-view';
 import { EmptyView, ErrorView } from './status-views';
@@ -23,6 +24,14 @@ export const OutputPanel = ({
   onShapeResourceTypeChange,
   shapeFormat,
   onShapeFormatChange,
+  rowTables,
+  rowLists,
+  onRowListsChange,
+  rowCells,
+  onRowCellsChange,
+  rowExplode,
+  onRowExplodeChange,
+  explodableFields,
   warnings,
   tab,
   onTabChange,
@@ -35,6 +44,18 @@ export const OutputPanel = ({
   const tabContent: Record<OutputTab, ReactNode> = {
     [OUTPUT_TAB.STANDARD]: parsed ? <StandardView bundle={result.bundle} /> : null,
     [OUTPUT_TAB.NORMALIZED]: <NormalizedView resources={normalized} />,
+    [OUTPUT_TAB.ROWS]: (
+      <RowsView
+        tables={rowTables}
+        lists={rowLists}
+        onListsChange={onRowListsChange}
+        cells={rowCells}
+        onCellsChange={onRowCellsChange}
+        explode={rowExplode}
+        onExplodeChange={onRowExplodeChange}
+        explodable={explodableFields}
+      />
+    ),
     [OUTPUT_TAB.SHAPE]: (
       <ShapeView
         text={shapeText}

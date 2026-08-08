@@ -5,6 +5,60 @@ All notable changes to `fhir-normalize`.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] — 2026-08-07
+
+### Added
+
+- **`toRows`, `toTables`, and `columnsOf` — the simplified view as flat records.** Analytics is one
+  of the main reasons to normalize FHIR, and a flat table is what most downstream tools want. The
+  simplified view already resolves choice elements onto one key and flattens every datatype to a
+  fixed shape, so the last step was mechanical — and every consumer was writing it by hand, each
+  slightly differently:
+
+  ```ts
+  import { simplifyBundle, toRows } from 'fhir-normalize/simplified';
+
+  toRows(simplifyBundle(bundle));
+  // [{ resourceType: 'Observation', id: 'obs-1', code: 'Body Weight', value: '74.5 kg', … }]
+  ```
+
+  A cell is `string | number | boolean | null`, so rows go straight to a CSV writer, a dataframe, or
+  a database driver. Columns are stable **per resource type** — same keys, same order, `null` where
+  a value is absent — so no writer can produce ragged output, and a Patient table does not carry
+  Observation columns. `toTables` returns them grouped; `columnsOf` returns the header.
+
+  The decisions worth knowing, all covered by tests:
+
+  | Question | Answer |
+  | --- | --- |
+  | Repeating elements | The first entry plus a `_count` column, so the loss is visible. `{ lists: 'index' }` numbers them instead; `{ explode: 'name' }` makes each entry a row. |
+  | Backbone elements | Flattened under their own prefix — `component_code` — following the same `lists` rule. `{ explode: 'component' }` gives the blood-pressure Observation a row per component. |
+  | Column names | Joined with `_`, which cannot occur inside a FHIR element name and is legal unquoted in SQL. `component_0_value_unit` splits back into its parts. |
+  | What is in a cell | `text` by default. `{ cells: 'typed' }` adds the value's own properties, so the LOINC code and the numeric magnitude survive as well as their rendering. |
+
+  It emits no CSV text. Quoting, escaping, and encoding are solved problems, and rows hand off to
+  whichever library already solved them.
+
+- **A Rows tab in the [playground](https://fhir-normalize-playground.vercel.app)**, so the
+  projection can be tried against a payload rather than read about. It renders a table per resource
+  type with the three controls `toRows` exposes — `lists`, `cells`, and `explode` — and copies any
+  table out as CSV, which is the library's own advice about who should own the quoting. The explode
+  picker lists the repeating fields the parsed payload actually carries, so every option in it
+  changes what you see. A `Blood pressure` sample was added alongside it: one Observation with two
+  components, which is the case the flat projection has to answer for.
+
+### Notes
+
+- `toRows` is exported from `fhir-normalize/simplified` and **not** from the root entry point,
+  which is the one place the root does not mirror the subpath. A bundle built against the root
+  export is byte-for-byte the size it was before this existed.
+- `explode` takes one field, not a list: exploding two repeating elements at once produces their
+  cross product rather than a grain anyone asked for. A resource that lacks the field still
+  produces its row, so the table's contents do not depend on which field the caller chose.
+- The playground's row controls are built from `LIST_MODE` and `CELL_MODE` rather than from strings
+  of their own, and a test asserts the two sets match — the same arrangement that keeps its parse
+  modes in step with the registered formats.
+
 ## [2.1.0] — 2026-08-07
 
 ### Fixed

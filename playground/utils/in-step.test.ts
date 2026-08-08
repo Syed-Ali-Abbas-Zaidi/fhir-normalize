@@ -1,5 +1,16 @@
+import { CELL_MODE, LIST_MODE } from 'fhir-normalize/simplified';
 import { describe, expect, it } from 'vitest';
-import { FORMAT_LABEL, MODE_OPTIONS, PARSE_MODE, RESULT_STATE, SAMPLES } from '@/constants';
+import {
+  FORMAT_LABEL,
+  MODE_OPTIONS,
+  OUTPUT_TAB,
+  PARSE_MODE,
+  RESULT_STATE,
+  ROW_CELL_OPTIONS,
+  ROW_LIST_OPTIONS,
+  SAMPLES,
+  TAB_OPTIONS,
+} from '@/constants';
 import { detectFormat, parseForDisplay, registeredFormats } from '@/utils/normalize';
 
 /**
@@ -41,6 +52,22 @@ describe('the playground offers what the library registers', () => {
     const unlabelled = registeredFormats().filter((format) => FORMAT_LABEL[format] === undefined);
 
     expect(unlabelled).toEqual([]);
+  });
+
+  it('has a tab for every output view the page declares', () => {
+    const offered = TAB_OPTIONS.map((option) => option.value);
+
+    expect(offered).toEqual(expect.arrayContaining(Object.values(OUTPUT_TAB)));
+  });
+
+  // The row controls are the same kind of surface as the parse modes: built
+  // from the library's own tokens, so a mode added to `toRows` fails here
+  // until the Rows tab offers it.
+  it.each([
+    ['lists', Object.values(LIST_MODE), ROW_LIST_OPTIONS.map((option) => option.value)],
+    ['cells', Object.values(CELL_MODE), ROW_CELL_OPTIONS.map((option) => option.value)],
+  ])('offers every %s mode the library defines, and no other', (_label, defined, offered) => {
+    expect([...offered].sort()).toEqual([...defined].sort());
   });
 });
 

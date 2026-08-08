@@ -1,4 +1,5 @@
 import type { ParseResult, SimplifiedResource, SourceFormat } from 'fhir-normalize';
+import type { Cell, CellMode, ListMode } from 'fhir-normalize/simplified';
 import type {
   JSON_TOKEN,
   OUTPUT_TAB,
@@ -48,6 +49,35 @@ export interface JsonToken {
 export interface ModeOption {
   value: ParseMode;
   label: string;
+}
+
+export interface RowListOption {
+  value: ListMode;
+  label: string;
+}
+
+export interface RowCellOption {
+  value: CellMode;
+  label: string;
+}
+
+/**
+ * One projected row, with a rendering identity.
+ *
+ * Rows have no id of their own — two exploded components of one Observation
+ * differ only by position — so the key is assigned where the table is built,
+ * the same way {@link ResourceSummary} does it.
+ */
+export interface RenderRow {
+  key: string;
+  cells: Record<string, Cell>;
+}
+
+/** One resource type's table, ready to render: a header and its rows. */
+export interface RowTable {
+  resourceType: string;
+  columns: string[];
+  rows: readonly RenderRow[];
 }
 
 export interface TabConfig {
@@ -106,5 +136,16 @@ export interface PlaygroundState {
   setShapeFormat: (format: ShapeFormat) => void;
   /** The rendered structure for `shapeResourceType`. */
   shapeText: string | null;
+  /** The simplified view projected into flat records, a table per resource type. */
+  rowTables: RowTable[];
+  rowLists: ListMode;
+  setRowLists: (mode: ListMode) => void;
+  rowCells: CellMode;
+  setRowCells: (mode: CellMode) => void;
+  /** The field being exploded into rows, or `NO_EXPLODE` for none. */
+  rowExplode: string;
+  setRowExplode: (field: string) => void;
+  /** Repeating fields the parsed resources actually carry, for the picker. */
+  explodableFields: string[];
   warnings: string[];
 }

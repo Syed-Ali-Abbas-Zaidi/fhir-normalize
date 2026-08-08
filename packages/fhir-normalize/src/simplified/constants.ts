@@ -126,3 +126,61 @@ export const EMPTY_TEXT = '—';
 
 /** Separator between the parts of a composed label, e.g. `Body Weight · 74.5 kg`. */
 export const LABEL_SEPARATOR = ' · ';
+
+/* ------------------------------------------------------------------ */
+/*  Rows                                                               */
+/* ------------------------------------------------------------------ */
+
+/** How a repeating element becomes columns. */
+export const LIST_MODE = {
+  /** The first entry, plus a `_count` column saying how many there were. */
+  FIRST: 'first',
+  /** Every entry, numbered — `name_0_family`, `name_1_family`. */
+  INDEX: 'index',
+} as const;
+
+/** What lands in a cell. */
+export const CELL_MODE = {
+  /** The `text` rendering, one column per field. Lossy by design. */
+  TEXT: 'text',
+  /** `text`, plus the value's own properties as their own columns. */
+  TYPED: 'typed',
+} as const;
+
+/**
+ * Between the parts of a column name — `component_0_value_unit`.
+ *
+ * FHIR element names are `[A-Za-z0-9]+`, so an underscore cannot occur inside
+ * one and a column name can always be split back into its parts. It is also
+ * the one separator that is a legal SQL identifier character unquoted.
+ */
+export const COLUMN_SEPARATOR = '_';
+
+/** The columns every row starts with, whatever the resource type. */
+export const IDENTITY_COLUMN = {
+  RESOURCE_TYPE: 'resourceType',
+  ID: 'id',
+  DISPLAY: 'display',
+} as const;
+
+/** Appended to a field's column name for the columns *about* that field. */
+export const COLUMN_SUFFIX = {
+  /** How many entries the repeating element held. */
+  COUNT: 'count',
+  /** Which entry an exploded row came from. */
+  INDEX: 'index',
+  /** The value kind, so a choice column can be read back. */
+  KIND: 'kind',
+} as const;
+
+/** Joins a repeating primitive — `given` — into one cell. */
+export const CELL_LIST_SEPARATOR = ' | ';
+
+/**
+ * Value properties a flat cell cannot hold.
+ *
+ * `codings` is the only one: a CodeableConcept's alternate codings are records,
+ * and the primary one is already flattened onto `code`, `system`, and
+ * `display`. Anything more belongs in the simplified view, not a table.
+ */
+export const UNCELLED_PROPERTY: ReadonlySet<string> = new Set(['kind', 'text', 'codings']);

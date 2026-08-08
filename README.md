@@ -31,7 +31,7 @@ import type { Bundle, FhirResource } from 'fhir-normalize';
 
 ## Status
 
-`2.1.0`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform`, and the `Normalizer`
+`2.2.0`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform`, and the `Normalizer`
 methods — is stable under semver; anything breaking lands in a major.
 
 | Format | Status |
@@ -41,8 +41,9 @@ methods — is stable under semver; anything breaking lands in a major.
 | NDJSON (Bulk Data `$export`) | ✅ Supported |
 | Cross-version STU3 / R5 → R4 | ⚠️ Partial (14 curated differences — [see coverage](#older-and-newer-releases-land-on-r4)) |
 | Simplified view (choice types resolved) | ✅ Supported (every section, 147 types) |
+| Flat rows out, for CSV and tabular loads | ✅ Supported (via `fhir-normalize/simplified`) |
 | De-identification | ✅ Supported (structural; see the limits below) |
-| HL7 v2, C-CDA, CSV | 📋 Later |
+| HL7 v2, C-CDA, CSV **in** | 📋 Later |
 
 ## Install
 
@@ -74,10 +75,13 @@ you do not use.
 
 ```ts
 import { createDefaultNormalizer } from 'fhir-normalize';              // parsing
-import { simplifyBundle, formatShape } from 'fhir-normalize/simplified';
+import { simplifyBundle, formatShape, toRows } from 'fhir-normalize/simplified';
 import { deIdentifyBundle } from 'fhir-normalize/deidentify';
 import { fhirXmlParser } from 'fhir-normalize/xml';                    // opt in
 ```
+
+`toRows` is the one export the root does not re-export: it serves the `/simplified` subpath only,
+so it costs nothing to anyone who does not project the simplified view into a table.
 
 The 147 resource shape tables are the bulk of the library, and they only ship if you import from
 `/simplified`. Measured on a real install, minified:
@@ -400,6 +404,95 @@ exports, so the interface compiles as-is.
 `describeShape` returns the same information as data if you want to generate something else from
 it, and `listShapes()` enumerates every resource type with a declared shape.
 
+### Flat rows, for CSV and for tables
+
+Analytics is one of the main reasons to normalize FHIR, and a flat table is what most downstream
+tools want. The simplified view has already done the hard part, so `toRows` is the mechanical last
+step — one row per resource, one column per field, cells a CSV writer or a database driver takes
+as they are:
+
+```ts
+import { simplifyBundle, toRows } from 'fhir-normalize/simplified';
+
+const rows = toRows(simplifyBundle(bundle));
+// [{ resourceType: 'Observation', id: 'obs-1', code: 'Body Weight', value: '74.5 kg', … }]
+```
+
+A cell is `string | number | boolean | null` and nothing else. **No CSV text is emitted**: quoting,
+escaping, and encoding are solved problems, and rows hand off to whichever library already solved
+them.
+
+**Columns are stable per resource type.** Every Observation row carries the same keys in the same
+order as every other Observation row, with `null` where a value is absent — so a writer cannot
+produce ragged output. A Patient row keeps Patient columns: one table spanning both would be mostly
+empty cells. `columnsOf(rows)` gives the header, and `toTables` returns a table each:
+
+```ts
+import { columnsOf, toTables } from 'fhir-normalize/simplified';
+
+const tables = toTables(simplifyBundle(bundle));   // { Patient: [...], Observation: [...] }
+columnsOf(tables.Observation);                     // ['resourceType', 'id', 'display', 'status', …]
+```
+
+**Column names join with `_`.** FHIR element names are `[A-Za-z0-9]+`, so an underscore cannot
+occur inside one and a name always splits back into its parts — and it is the one separator that is
+a legal unquoted SQL identifier character. Nesting reads left to right:
+`component_0_value_unit` is `component[0].value.unit`.
+
+**Repeating elements** default to the first entry, with a `_count` column saying how many there
+were, so the loss is visible rather than silent. Two other treatments are an option away:
+
+| Options | `Patient.name` becomes | Grain |
+| --- | --- | --- |
+| *(default)* | `name`, `name_count` | one row per resource |
+| `{ lists: 'index' }` | `name_0`, `name_1`, … | one row per resource |
+| `{ explode: 'name' }` | `name`, `name_index`, `name_count` | one row per name |
+
+`explode` names **one** field, not several: exploding two lists at once produces their cross
+product, which is not a grain anyone asked for. A resource without that field still produces its
+one row, so nothing drops out of the table. This is the answer to the blood pressure Observation —
+`{ explode: 'component' }` gives a row for systolic and a row for diastolic, with the code, subject,
+and date duplicated onto each.
+
+**Backbone elements** flatten under their own prefix, following the same `lists` rule:
+`component_code` and `component_value` by default, `component_0_code` when indexed. Groups nested
+inside groups keep nesting — `component_referenceRange_low`.
+
+**What lands in a cell** is `text` by default — the rendering every normalized value carries, which
+is simple and lossy. Ask for `typed` cells when you want the code rather than its display name, or
+the magnitude rather than its rendering:
+
+```ts
+toRows(resources, { cells: 'typed' })[0];
+// { code: 'Body Weight', code_kind: 'concept', code_code: '29463-7',
+//   code_system: 'http://loinc.org', code_display: 'Body Weight',
+//   value: '74.5 kg', value_kind: 'quantity', value_value: 74.5, value_unit: 'kg', … }
+```
+
+| Cells | Columns for `Observation.code` | Columns for `Observation.value` |
+| --- | --- | --- |
+| `text` | `code` | `value` |
+| `typed` | `code`, and one per property of the value's kind | `value`, and one per property of whichever kind the choice resolved to |
+
+Typed cells are a superset: every text column is still there, joined by the value's own properties
+and a `_kind` column, so a choice element can be read back. Numbers stay numbers and booleans stay
+booleans. Values nested in values flatten too — a Range gives `value_low_value` and
+`value_high_value`. Repeating primitives join into one cell: `name_given` is `Ali | Reza`. The one
+property a cell cannot hold is a CodeableConcept's alternate `codings`, whose primary entry is
+already flattened onto `code`, `system`, and `display`; reach for the simplified view if you need
+the rest.
+
+Two smaller rules, both about honesty:
+
+- A value that renders as the em-dash placeholder becomes `null`. The placeholder is a display
+  affordance — a table has a real empty cell where a page does not.
+- An element the shape does not declare still gets a column. With `typed` cells an object-valued
+  one is serialized as JSON rather than dropped, the same way `unmapped` keeps it visible.
+
+**This lives on the `fhir-normalize/simplified` subpath only**, not on the root entry point, so it
+costs nothing to anyone who does not ask for it: a bundle built against the root export is
+byte-for-byte the size it was before this existed.
+
 ### De-identification
 
 Pass `deIdentify` to strip direct identifiers as a post-parse stage:
@@ -584,6 +677,8 @@ heterogeneous and there is nothing to infer from.
 | `createDefaultNormalizer()` | A `Normalizer` with all built-in parsers registered. |
 | `fhirJsonParser`, `fhirXmlParser` | The built-in adapters. |
 | `simplifyBundle`, `simplifyResource` | The simplified view: choice types resolved, datatypes flattened. |
+| `toRows`, `toTables`, `columnsOf` | The simplified view as flat records, for CSV and tabular loads. `fhir-normalize/simplified` only. |
+| `LIST_MODE`, `CELL_MODE` | Row option tokens: how repeating elements become columns, and what lands in a cell. |
 | `fhirJsonParser`, `fhirXmlParser`, `ndjsonParser` | The built-in format adapters, registerable on your own `Normalizer`. |
 | `resolveChoice` | Resolves one `value[x]`-style element on its own. |
 | `formatShape`, `describeShape`, `listShapes` | The simplified structure of a resource type, printed or as data. |
@@ -605,6 +700,11 @@ heterogeneous and there is nothing to infer from.
 [`playground/`](playground) is a Next.js app that runs the library in the browser: paste raw data
 on the left, watch it come out as the standard shape on the right, with the detected format, the
 extracted resources, and the warnings each on their own tab.
+
+**Rows** is where to try the tabular projection without writing any code: it renders a table per
+resource type, with `lists`, `cells`, and `explode` as controls, and copies any table out as CSV.
+Load the `Blood pressure` sample and set explode to `component` to watch one Observation become a
+row for systolic and a row for diastolic.
 
 It imports `fhir-normalize` from the workspace rather than a published build, so the demo cannot
 drift from the library — change a parser and the page reflects it.

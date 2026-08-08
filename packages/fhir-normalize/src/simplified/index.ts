@@ -1,5 +1,16 @@
 export { normalizeByKind, resolveChoice } from './choice';
-export { DESCRIBE_FORMAT, FIELD_KIND, TYPE_SUFFIX_KIND, VALUE_KIND } from './constants';
+export {
+  CELL_LIST_SEPARATOR,
+  CELL_MODE,
+  COLUMN_SEPARATOR,
+  COLUMN_SUFFIX,
+  DESCRIBE_FORMAT,
+  FIELD_KIND,
+  IDENTITY_COLUMN,
+  LIST_MODE,
+  TYPE_SUFFIX_KIND,
+  VALUE_KIND,
+} from './constants';
 export { describeShape, formatShape, listShapes, valueProperties } from './describe';
 /**
  * Per-resource field types, generated from the shape tables — `PatientFields`,
@@ -8,6 +19,11 @@ export { describeShape, formatShape, listShapes, valueProperties } from './descr
  * these are only needed when naming the type yourself.
  */
 export type * from './fields.generated';
+/**
+ * The tabular projection. Kept on this subpath, and out of the root entry
+ * point, so it costs nothing to anyone who does not ask for it.
+ */
+export { columnsOf, toRows, toTables } from './rows';
 export {
   BASE_SHAPE,
   CLINICAL_ALIAS,
@@ -20,10 +36,13 @@ export {
   shapeFor,
 } from './shapes';
 export type {
+  Cell,
+  CellMode,
   DescribeFormat,
   FieldKind,
   FieldSpec,
   FieldsOf,
+  ListMode,
   NormalizedAddress,
   NormalizedBoolean,
   NormalizedCoding,
@@ -42,6 +61,8 @@ export type {
   NormalizedUnknown,
   NormalizedValue,
   ResourceShape,
+  Row,
+  RowOptions,
   ShapeDescription,
   ShapeFieldDescription,
   SimplifiedFields,

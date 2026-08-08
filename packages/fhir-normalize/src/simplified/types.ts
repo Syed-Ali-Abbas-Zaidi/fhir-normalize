@@ -1,9 +1,11 @@
-import type { DESCRIBE_FORMAT, FIELD_KIND, VALUE_KIND } from './constants';
+import type { CELL_MODE, DESCRIBE_FORMAT, FIELD_KIND, LIST_MODE, VALUE_KIND } from './constants';
 import type { ResourceFieldMap } from './fields.generated';
 
 export type ValueKind = (typeof VALUE_KIND)[keyof typeof VALUE_KIND];
 export type FieldKind = (typeof FIELD_KIND)[keyof typeof FIELD_KIND];
 export type DescribeFormat = (typeof DESCRIBE_FORMAT)[keyof typeof DESCRIBE_FORMAT];
+export type ListMode = (typeof LIST_MODE)[keyof typeof LIST_MODE];
+export type CellMode = (typeof CELL_MODE)[keyof typeof CELL_MODE];
 
 /** One entry from a CodeableConcept's `coding` array. */
 export interface NormalizedCoding {
@@ -232,3 +234,46 @@ export interface SimplifiedResourceOf<T extends string = string> {
 
 /** A simplified resource whose type is not known at compile time. */
 export type SimplifiedResource = SimplifiedResourceOf<string>;
+
+/**
+ * One cell of a row.
+ *
+ * Deliberately scalar: a CSV writer, a dataframe constructor, and a database
+ * driver all take these as they are, with no further processing.
+ */
+export type Cell = string | number | boolean | null;
+
+/**
+ * One flat record — a table row.
+ *
+ * Every row of the same resource type carries the same keys in the same order,
+ * with `null` where a value is absent, so `Object.keys(rows[0])` is a usable
+ * header and a CSV writer cannot produce ragged output.
+ */
+export type Row = Record<string, Cell>;
+
+export interface RowOptions {
+  /**
+   * How a repeating element becomes columns. Defaults to `first`, which takes
+   * one entry and reports how many there were in `<field>_count` — lossy, but
+   * the loss is visible rather than silent.
+   */
+  lists?: ListMode;
+  /**
+   * What lands in a cell. Defaults to `text`, the rendering every normalized
+   * value carries. `typed` adds the value's own properties as their own
+   * columns, so the LOINC code and the numeric magnitude survive the
+   * projection rather than only their rendering.
+   */
+  cells?: CellMode;
+  /**
+   * The name of one repeating field whose entries each become a row, with the
+   * other columns duplicated — `component` for the blood-pressure Observation
+   * that carries systolic and diastolic.
+   *
+   * One field, not several: exploding two lists at once produces their cross
+   * product, which is not a grain anyone asked for. A resource without the
+   * field still produces its one row, so nothing drops out of the table.
+   */
+  explode?: string;
+}
