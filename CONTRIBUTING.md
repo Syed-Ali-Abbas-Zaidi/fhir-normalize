@@ -64,8 +64,9 @@ Work on a branch, open a pull request, and let CI run. A few conventions:
 - **Semantic versioning is taken literally.** A change to what the library does with *valid* input
   is a minor at least, even when it is a bug fix. Removing something from the public surface, or
   narrowing a type consumers might depend on, is a major.
-- **Add the entry to `CHANGELOG.md`.** Say what changed and why it mattered, not just what was
-  touched.
+- **Add an entry to `CHANGELOG.md` if the change reaches a release.** Anything a consumer of the
+  package could notice belongs there, which is most changes. Repository plumbing that never ships,
+  such as a CI tweak, does not. Say what changed and why it mattered, not just what was touched.
 - **Bundle size is a public claim.** The README lists measured figures per entry point. If a change
   moves them, measure again and update the table. The heavy parts live behind subpaths precisely so
   that a consumer who does not import them does not pay for them.
@@ -92,8 +93,13 @@ Formatting and linting are handled by Biome; `pnpm lint:fix` applies both. Beyon
 
 Bugs and feature requests both go to
 [Issues](https://github.com/Syed-Ali-Abbas-Zaidi/fhir-normalize/issues). For a bug, the input that
-caused it is worth more than a description of it. If the input contains real patient data, run it
-through `deIdentifyBundle` first, and read the limits in the README before assuming that is enough.
+caused it is worth more than a description of it.
+
+**Never put real patient data in an issue, including data this library has de-identified.** The
+de-identification pass is structural and explicitly not certified anonymisation, so it can leave
+residual identifiers and does nothing about quasi-identifiers. Describe the shape of the input
+instead, or reproduce it with invented values. A synthetic payload that triggers the bug is worth
+more than a real one anyway, because it can go straight into a test.
 
 ## Security
 

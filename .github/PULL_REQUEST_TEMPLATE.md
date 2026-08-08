@@ -17,7 +17,7 @@ reintroduced it and watched the new test fail.
 ## Checklist
 
 - [ ] `pnpm verify` passes
-- [ ] `CHANGELOG.md` updated, if this should appear in a release
+- [ ] `CHANGELOG.md` updated, if the change reaches a release
 - [ ] Version bumped in `packages/fhir-normalize/package.json`, if this should be released
 - [ ] Generated files regenerated rather than hand-edited (`fields.generated.ts`, `spec/*.json`)
 - [ ] README bundle-size figures re-measured, if the change could move them
