@@ -9,7 +9,8 @@
       "!**/.next",
       "!**/next-env.d.ts",
       "!**/spec/*.json",
-      "!**/fields.generated.ts"
+      "!**/fields.generated.ts",
+      "!**/.claude"
     ]
   },
   "formatter": {

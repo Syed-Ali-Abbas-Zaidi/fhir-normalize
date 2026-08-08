@@ -738,7 +738,12 @@ pnpm install
 pnpm verify      # build, lint, typecheck, test — the same gate CI runs
 ```
 
-Release history is in [CHANGELOG.md](CHANGELOG.md).
+Release history is in [CHANGELOG.md](CHANGELOG.md). Before opening a pull request, read
+[CONTRIBUTING.md](CONTRIBUTING.md): the shape tables, the cross-version migrations, and two
+generated files are all checked against vendored copies of the FHIR definitions, and knowing that
+saves arguing with a test that is right.
+
+Security reports go through [a private advisory](SECURITY.md), not a public issue.
 
 Individually:
 
