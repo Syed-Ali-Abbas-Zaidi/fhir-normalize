@@ -3,6 +3,7 @@ import { deIdentifyBundle, deIdentifyResource } from '../deidentify';
 import { createDefaultNormalizer } from '../index';
 import { fhirXmlParser } from '../parsers/fhir-xml';
 import { simplifyResource } from '../simplified';
+import { SOURCE_FORMAT } from './constants';
 import { ParseError } from './errors';
 
 /**
@@ -25,6 +26,15 @@ const hostile = () =>
 
 const prototypeIntact = (value: object) => Object.getPrototypeOf(value) === Object.prototype;
 
+/**
+ * Checked alongside every prototype assertion, because on its own
+ * `prototypeIntact` cannot tell a fix from a different bug: dropping the key
+ * entirely also leaves a plain object behind. The library's promise is that
+ * nothing is discarded silently, so the value has to still be there, as an
+ * ordinary own property.
+ */
+const keptAsOwnKey = (value: object) => Object.hasOwn(value, '__proto__');
+
 describe('a `__proto__` key cannot reach an object prototype', () => {
   it('leaves Object.prototype alone', () => {
     createDefaultNormalizer().parse(hostile());
@@ -34,33 +44,39 @@ describe('a `__proto__` key cannot reach an object prototype', () => {
     expect(({} as { isAdmin?: unknown }).isAdmin).toBeUndefined();
   });
 
-  it('returns a parsed resource with its own prototype', () => {
+  it('returns a parsed resource with its own prototype, key intact', () => {
     const { bundle } = createDefaultNormalizer().parse(hostile());
+    const resource = bundle.entry?.[0]?.resource as object;
 
-    expect(prototypeIntact(bundle.entry?.[0]?.resource as object)).toBe(true);
+    expect(prototypeIntact(resource)).toBe(true);
+    expect(keptAsOwnKey(resource)).toBe(true);
   });
 
-  it('returns a de-identified resource with its own prototype', () => {
+  it('returns a de-identified resource with its own prototype, key intact', () => {
     const { resource } = deIdentifyResource(hostile());
 
     expect(prototypeIntact(resource)).toBe(true);
+    expect(keptAsOwnKey(resource)).toBe(true);
     expect((resource as { isAdmin?: unknown }).isAdmin).toBeUndefined();
   });
 
-  it('returns a de-identified bundle whose entries have their own prototype', () => {
+  it('returns a de-identified bundle whose entries have their own prototype, key intact', () => {
     const { bundle } = deIdentifyBundle({
       resourceType: 'Bundle',
       type: 'collection',
       entry: [{ resource: hostile() }],
     } as never);
+    const resource = bundle.entry?.[0]?.resource as object;
 
-    expect(prototypeIntact(bundle.entry?.[0]?.resource as object)).toBe(true);
+    expect(prototypeIntact(resource)).toBe(true);
+    expect(keptAsOwnKey(resource)).toBe(true);
   });
 
-  it('returns simplified fields with their own prototype', () => {
+  it('returns simplified fields with their own prototype, key intact', () => {
     const { fields } = simplifyResource(hostile());
 
     expect(prototypeIntact(fields)).toBe(true);
+    expect(keptAsOwnKey(fields)).toBe(true);
   });
 
   it('keeps the value as an ordinary own property rather than dropping it', () => {
@@ -85,5 +101,21 @@ describe('the XML adapter reports a rejected document as a ParseError', () => {
         .parse('<Patient><__proto__><isAdmin value="true"/></__proto__></Patient>');
 
     expect(parse).toThrow(ParseError);
+
+    // The class alone is not the point. Wrapping is only useful if what the
+    // dependency said survives, so a caller can see why the document was
+    // refused rather than just that it was.
+    const error = (() => {
+      try {
+        parse();
+      } catch (thrown) {
+        return thrown as ParseError;
+      }
+      throw new Error('expected a ParseError');
+    })();
+
+    expect(error.format).toBe(SOURCE_FORMAT.FHIR_XML);
+    expect(error.cause).toBeInstanceOf(Error);
+    expect((error.cause as Error).message).toContain('__proto__');
   });
 });
