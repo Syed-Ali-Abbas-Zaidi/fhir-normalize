@@ -1,0 +1,79 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+#
+# Public repositories get CodeRabbit reviews for free, so this file only shapes
+# what it looks at. Everything here is about signal: a reviewer that comments on
+# a 309KB generated digest teaches people to ignore it.
+
+language: en
+early_access: false
+
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  high_level_summary: true
+  review_status: true
+  poem: false
+
+  # Generated and vendored files. Nothing here is written by hand, so a review
+  # comment on one of them is asking a human to fix a script's output.
+  path_filters:
+    - '!**/spec/*.json'
+    - '!**/*.generated.ts'
+    - '!pnpm-lock.yaml'
+    - '!**/dist/**'
+    - '!**/.next/**'
+
+  path_instructions:
+    - path: 'packages/fhir-normalize/src/simplified/shapes/**'
+      instructions: >-
+        These tables describe FHIR R4 resources and are checked against
+        spec/r4-elements.json by the conformance suite. Do not suggest adding,
+        renaming, or re-typing a field from knowledge of FHIR: if the spec
+        digest disagrees the suite already fails, and if it agrees the
+        suggestion is unnecessary. Field order is curated for readability and
+        is deliberate. Worth flagging: a display builder that could throw on a
+        partially populated resource, and duplicate keys in an object literal,
+        which TypeScript accepts silently.
+
+    - path: 'packages/fhir-normalize/src/version/**'
+      instructions: >-
+        This is the only code that rewrites clinical data rather than reading
+        it, and whatever a converter returns is written into the resource
+        unchecked. Weigh correctness here far above style. Migration is
+        marker-driven, so the property that matters most is that a marker field
+        cannot appear in a genuine R4 payload; rows that need an `applies` guard
+        must have one. A converter must return undefined rather than a value R4
+        would not allow in the target element, including an empty array, which
+        FHIR JSON forbids.
+
+    - path: 'packages/fhir-normalize/src/deidentify/**'
+      instructions: >-
+        Removing data is the point here, so lossiness is not a finding. What is
+        worth flagging is an identifier that survives in one form while being
+        removed in another, since the redact list matches on element names and
+        the same information often appears under a different name. Also flag
+        anything that would weaken a surrogate or make the salt recoverable.
+        The documented limits in the README are deliberate and are not bugs.
+
+    - path: 'playground/**'
+      instructions: >-
+        A demo, not a product. Do not raise findings about production hardening,
+        error boundaries, or accessibility beyond obvious breakage. Do flag
+        anything that would let the playground drift from the library it
+        demonstrates, such as a format list or sample that no test covers.
+
+    - path: '**/*.test.ts'
+      instructions: >-
+        The standard here is whether a test would have caught the bug it is
+        about, not whether it covers the line. Flag a test that asserts what the
+        code currently does without an independent reason to believe that is
+        correct, since that is the failure mode this project has repeatedly hit.
+
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - main
+
+chat:
+  auto_reply: true
