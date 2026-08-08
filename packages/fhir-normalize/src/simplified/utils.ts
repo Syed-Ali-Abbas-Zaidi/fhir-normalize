@@ -1,5 +1,5 @@
 import type { Bundle, FhirResource } from 'fhir/r4';
-import { isRecord, type UnknownRecord } from '../core';
+import { assignKey, isRecord, type UnknownRecord } from '../core';
 import { choiceKeys, resolveChoice } from './choice';
 import { EMPTY_TEXT, FIELD_KIND, VALUE_KIND } from './constants';
 import {
@@ -98,7 +98,7 @@ const readFields = (
     const read = readField(record, name, spec);
     if (read === null) continue;
 
-    fields[name] = read.value;
+    assignKey(fields, name, read.value);
     for (const key of read.consumed) consumed.add(key);
   }
 
@@ -137,7 +137,7 @@ export function simplifyResource(resource: unknown): SimplifiedResource {
   for (const key of Object.keys(record)) {
     if (consumed.has(key) || COMMON_ELEMENT.has(key)) continue;
 
-    fields[key] = toPrimitive(record[key]);
+    assignKey(fields, key, toPrimitive(record[key]));
     if (shape) unmapped.push(key);
   }
 

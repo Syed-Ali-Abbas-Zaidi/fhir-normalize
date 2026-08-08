@@ -1,6 +1,7 @@
 import { XMLParser, XMLValidator } from 'fast-xml-parser';
 import type { Bundle, FhirResource } from 'fhir/r4';
 import {
+  assignKey,
   createCollectionBundle,
   isBundleRecord,
   isRecord,
@@ -54,7 +55,18 @@ export const decodeXml = (raw: unknown): UnknownRecord => {
     throw new ParseError(SOURCE_FORMAT.FHIR_XML, FHIR_XML_ERROR.MALFORMED(validation.err.msg));
   }
 
-  const parsed: unknown = xmlParser.parse(raw);
+  // Guarded because the dependency throws on input its own validator accepts —
+  // an element named `__proto__`, for one, which it refuses on security
+  // grounds. Unwrapped, that reaches the caller as a bare Error even though
+  // every other failure here is a ParseError.
+  let parsed: unknown;
+  try {
+    parsed = xmlParser.parse(raw);
+  } catch (cause) {
+    const detail = cause instanceof Error ? cause.message : String(cause);
+    throw new ParseError(SOURCE_FORMAT.FHIR_XML, FHIR_XML_ERROR.REJECTED(detail), { cause });
+  }
+
   return isRecord(parsed) ? parsed : {};
 };
 
@@ -131,7 +143,7 @@ const toObject = (
       ? toContainedResources(raw, key, warnings)
       : applyCardinality(toValue(raw, key, elementName, warnings), key);
 
-    if (value !== undefined) result[key] = value;
+    if (value !== undefined) assignKey(result, key, value);
   }
 
   return result;

@@ -1,5 +1,5 @@
 import type { Bundle, FhirResource } from 'fhir/r4';
-import { isRecord, type UnknownRecord } from '../core';
+import { assignKey, isRecord, type UnknownRecord } from '../core';
 import {
   DATE_PATTERN,
   DATE_POLICY,
@@ -200,7 +200,7 @@ const scrubRecord = (record: UnknownRecord, settings: Settings, tally: Tally): U
     const decision = decide(key, value, context, settings);
 
     if (decision.action === DEID_ACTION.KEEP) {
-      result[key] = value;
+      assignKey(result, key, value);
       continue;
     }
 
@@ -213,7 +213,7 @@ const scrubRecord = (record: UnknownRecord, settings: Settings, tally: Tally): U
       // With pseudonymisation off the element goes entirely, which usually
       // breaks the graph — that is the caller's explicit choice.
       if (settings.pseudonymizeIds) {
-        result[key] = decision.value;
+        assignKey(result, key, decision.value);
         count(tally, 'pseudonymized', decision.label);
       } else {
         count(tally, 'redacted', decision.label);
@@ -222,7 +222,7 @@ const scrubRecord = (record: UnknownRecord, settings: Settings, tally: Tally): U
     }
 
     const scrubbed = scrub(value, key, settings, tally);
-    if (scrubbed !== undefined) result[key] = scrubbed;
+    if (scrubbed !== undefined) assignKey(result, key, scrubbed);
   }
 
   return result;

@@ -18,7 +18,7 @@ export {
   SOURCE_FORMAT,
 } from './constants';
 export { FhirNormalizeError, ParseError, UnsupportedFormatError } from './errors';
-export { isNonEmptyString, isRecord } from './guards';
+export { assignKey, isNonEmptyString, isRecord } from './guards';
 export { Normalizer } from './normalizer';
 export { createParseResult } from './result';
 export type {

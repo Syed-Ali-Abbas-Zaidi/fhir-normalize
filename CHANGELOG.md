@@ -5,6 +5,25 @@ All notable changes to `fhir-normalize`.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.1] — 2026-08-08
+
+### Fixed
+
+- **A `__proto__` key in a payload could set the prototype of a returned object.** `record[key] =
+  value` adds a property for every key except that one, which is an accessor on `Object.prototype`
+  and replaces the target's prototype instead. Objects built key by key, in the simplified view and
+  the de-identification pass, came back answering to whatever the payload chose while `Object.keys`
+  showed nothing of it.
+
+  `Object.prototype` itself was never affected, and neither was the parse path, which builds with
+  object spread and so creates an ordinary own property. Both now use a shared `assignKey` that
+  keeps `__proto__` as an own property, so the value is still reported in `unmapped` rather than
+  dropped and the two paths agree on what the payload contained.
+
+- **The XML adapter let an error from `fast-xml-parser` escape unwrapped.** It refuses an element
+  named `__proto__` after its own validator has passed the document, which reached the caller as a
+  bare `Error` even though every other failure in that adapter is a `ParseError`.
+
 ## [2.2.0] — 2026-08-07
 
 ### Added

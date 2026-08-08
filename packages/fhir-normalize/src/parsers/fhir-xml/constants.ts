@@ -161,6 +161,10 @@ export const FHIR_XML_WARNING = {
 export const FHIR_XML_ERROR = {
   MALFORMED: (detail: string): string => `Input is not well-formed XML: ${detail}`,
   NOT_A_STRING: 'FHIR XML input must be a string.',
+  // fast-xml-parser rejects some documents that pass its own validator, most
+  // notably element names like `__proto__`. Those arrive as a bare Error, and
+  // this adapter promises a ParseError.
+  REJECTED: (detail: string): string => `The XML parser rejected this document: ${detail}`,
   /**
    * Defensive only: `XMLValidator` rejects documents without exactly one root
    * before this can be reached. It stays so the root destructure is sound.
