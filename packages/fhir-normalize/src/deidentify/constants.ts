@@ -89,6 +89,24 @@ export const NEVER_REDACT_ELEMENT: ReadonlySet<string> = new Set([
   'kind',
 ]);
 
+/**
+ * How deep the scrub will walk before it stops and drops the rest.
+ *
+ * The pass is recursive, so a payload nested deeply enough exhausts the call
+ * stack — which happened around 1,300 levels, and a JSON string can be parsed
+ * to about 3,000 before `JSON.parse` itself gives up. Input here comes from
+ * other systems, so that is reachable rather than theoretical.
+ *
+ * Real FHIR does not go remotely this deep. The recursive elements are
+ * `Questionnaire.item` and `Consent.provision`, and a demanding questionnaire
+ * is a few dozen levels at most, so 100 leaves an order of magnitude of room
+ * while staying an order of magnitude below the stack.
+ */
+export const MAX_DEPTH = 100;
+
+/** Reported when {@link MAX_DEPTH} stops the walk, so the loss is not silent. */
+export const DEPTH_LIMIT_LABEL = '(nesting beyond the depth limit)';
+
 /** A FHIR date, dateTime, or instant with at least a month component. */
 export const DATE_PATTERN = /^\d{4}-\d{2}/;
 

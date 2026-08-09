@@ -31,7 +31,7 @@ import type { Bundle, FhirResource } from 'fhir-normalize';
 
 ## Status
 
-`2.2.1`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform`, and the `Normalizer`
+`2.2.2`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform`, and the `Normalizer`
 methods — is stable under semver; anything breaking lands in a major.
 
 | Format | Status |
