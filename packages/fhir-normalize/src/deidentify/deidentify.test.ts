@@ -374,3 +374,46 @@ describe('the new rules do not take what they should leave', () => {
     expect(provision.data[0]?.meaning).toBe('instance');
   });
 });
+
+describe('deeply nested input is bounded rather than fatal', () => {
+  /** A chain of nested extensions, which is the cheapest way to get depth. */
+  const nested = (depth: number) => {
+    const root: Record<string, unknown> = { resourceType: 'Patient', id: 'p1' };
+    let node = root;
+    for (let i = 0; i < depth; i += 1) {
+      const child: Record<string, unknown> = { url: 'http://example.org/x', valueString: 'v' };
+      node.extension = [child];
+      node = child;
+    }
+    return root;
+  };
+
+  it.each([2000, 20000])('survives %i levels instead of exhausting the stack', (depth) => {
+    // The pass is recursive, and before the limit this threw a RangeError at
+    // roughly 1,300 levels. `JSON.parse` accepts about 3,000, so a payload
+    // that deep is reachable as a string rather than only hand-built.
+    expect(() => deIdentifyResource(nested(depth) as never)).not.toThrow();
+  });
+
+  it('reports the truncation rather than dropping it silently', () => {
+    const { report } = deIdentifyResource(nested(2000) as never);
+
+    expect(report.elements.some((element) => element.includes('depth limit'))).toBe(true);
+    expect(report.redacted).toBeGreaterThan(0);
+  });
+
+  it('leaves nesting a real resource might have completely alone', () => {
+    // `Questionnaire.item` is recursive, so depth here is legitimate. The
+    // limit sits an order of magnitude above anything clinical.
+    const questionnaire = {
+      resourceType: 'Questionnaire',
+      status: 'active',
+      item: [{ linkId: '1', item: [{ linkId: '1.1', item: [{ linkId: '1.1.1' }] }] }],
+    };
+
+    const { resource, report } = deIdentifyResource(questionnaire as never);
+
+    expect(resource).toEqual(questionnaire);
+    expect(report.elements.some((element) => element.includes('depth limit'))).toBe(false);
+  });
+});

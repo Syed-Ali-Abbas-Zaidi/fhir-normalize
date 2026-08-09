@@ -5,8 +5,10 @@ import {
   DATE_POLICY,
   DEFAULT_OPTIONS,
   DEID_ACTION,
+  DEPTH_LIMIT_LABEL,
   FREE_TEXT_ELEMENT,
   FREE_TEXT_POLICY,
+  MAX_DEPTH,
   NEVER_REDACT_ELEMENT,
   REDACT_ELEMENT,
 } from './constants';
@@ -56,13 +58,28 @@ const isDate = (value: unknown): value is string =>
  * Walk a value, applying the policy. Returns the replacement, or `undefined`
  * to mean "drop this element".
  */
-const scrub = (value: unknown, key: string, settings: Settings, tally: Tally): unknown => {
+const scrub = (
+  value: unknown,
+  key: string,
+  settings: Settings,
+  tally: Tally,
+  depth: number,
+): unknown => {
+  // Past the limit the subtree goes, rather than the call stack. Dropping and
+  // reporting is what this pass does with everything else it will not carry,
+  // so the failure is deliberate instead of a RangeError nobody would expect
+  // from a library whose every other error is a ParseError.
+  if (depth > MAX_DEPTH) {
+    count(tally, 'redacted', DEPTH_LIMIT_LABEL);
+    return undefined;
+  }
+
   if (Array.isArray(value)) {
-    const items = value.map((item) => scrub(item, key, settings, tally)).filter(present);
+    const items = value.map((item) => scrub(item, key, settings, tally, depth)).filter(present);
     return items.length === 0 ? undefined : items;
   }
 
-  if (isRecord(value)) return scrubRecord(value, settings, tally);
+  if (isRecord(value)) return scrubRecord(value, settings, tally, depth + 1);
 
   if (isDate(value)) {
     if (settings.dates === DATE_POLICY.REDACT) {
@@ -188,7 +205,12 @@ const decide = (key: string, value: unknown, context: Context, settings: Setting
   return { action: DEID_ACTION.RECURSE };
 };
 
-const scrubRecord = (record: UnknownRecord, settings: Settings, tally: Tally): UnknownRecord => {
+const scrubRecord = (
+  record: UnknownRecord,
+  settings: Settings,
+  tally: Tally,
+  depth: number,
+): UnknownRecord => {
   const result: UnknownRecord = {};
   const context: Context = {
     reference: isReference(record),
@@ -221,7 +243,7 @@ const scrubRecord = (record: UnknownRecord, settings: Settings, tally: Tally): U
       continue;
     }
 
-    const scrubbed = scrub(value, key, settings, tally);
+    const scrubbed = scrub(value, key, settings, tally, depth);
     if (scrubbed !== undefined) assignKey(result, key, scrubbed);
   }
 
@@ -252,7 +274,7 @@ const scrubWith = (
     elements: new Set<string>(),
   };
 
-  const scrubbed = scrubRecord(record, settingsFrom(options), tally);
+  const scrubbed = scrubRecord(record, settingsFrom(options), tally, 0);
 
   return {
     scrubbed,

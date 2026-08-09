@@ -5,6 +5,30 @@ All notable changes to `fhir-normalize`.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.2] — 2026-08-09
+
+### Fixed
+
+- **Deeply nested input could exhaust the stack during de-identification.** The scrub is recursive
+  and threw `RangeError` at roughly 1,300 levels. `JSON.parse` accepts about 3,000, so a payload
+  that deep arrives as an ordinary JSON string rather than a hand-built object, and this library
+  exists to read data from other systems.
+
+  The walk now stops at 100 levels, drops what is beyond, and reports it — the same thing the pass
+  does with everything else it will not carry, so the outcome is deliberate rather than a
+  `RangeError` from a library whose every other failure is a `ParseError`. Real FHIR nests nowhere
+  near that: the recursive elements are `Questionnaire.item` and `Consent.provision`, and a
+  demanding questionnaire is a few dozen levels.
+
+  Parsing and the simplified view were unaffected. `simplifyResource` only descends into declared
+  shape fields, so its depth is bounded by the tables rather than by the payload.
+
+### Notes
+
+- Throughput was measured for the first time and needed no changes: parse runs at ~1.9M
+  resources/sec, the simplified view at ~167k, de-identification at ~149k, and per-resource cost
+  stays flat from 5,000 to 40,000 resources, so scaling is linear.
+
 ## [2.2.1] — 2026-08-08
 
 ### Fixed
