@@ -11,6 +11,7 @@
       "!**/spec/*.json",
       "!**/fields.generated.ts",
       "!**/r4-index.generated.ts",
+      "!**/cardinality.generated.ts",
       "!**/.claude"
     ]
   },

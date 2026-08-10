@@ -12,6 +12,11 @@ import {
   type WarningLog,
 } from '../../core';
 import {
+  REPEATING_BY_RESOURCE,
+  REPEATING_COMMON,
+  RESOURCE_CONTAINER_AT,
+} from './cardinality.generated';
+import {
   ATTRIBUTE_TO_PROPERTY,
   BOOLEAN_ELEMENT,
   BOOLEAN_ELEMENT_SUFFIX,
@@ -32,7 +37,31 @@ import {
 } from './constants';
 
 const xmlParser = new XMLParser(XML_PARSER_OPTIONS);
-const resourceContainers = new Set<string>(Object.values(RESOURCE_CONTAINER));
+/**
+ * Whether this element really wraps a nested resource.
+ *
+ * Matching the name alone was wrong eighteen times over: `resource` and
+ * `outcome` are ordinary elements nearly everywhere they appear, and reading
+ * them as wrappers destroyed the data. `Procedure.outcome` came back as
+ * `{ resourceType: 'text' }` and `AuditEvent.outcome` disappeared.
+ */
+const isResourceContainer = (
+  elementName: string,
+  parentName: string,
+  resourceType: string,
+): boolean => {
+  // Inherited from DomainResource, so it is a container on everything and the
+  // element digest — which leaves inherited elements out — cannot say so.
+  if (elementName === RESOURCE_CONTAINER.CONTAINED) return true;
+
+  // `Bundle.entry.response.outcome` is the one genuine container below the
+  // second level, which is as deep as the digest reaches. Scoped to Bundle so
+  // the eighteen other `outcome` elements are left alone.
+  if (elementName === RESOURCE_CONTAINER.OUTCOME) return resourceType === 'Bundle';
+
+  const level = parentName === resourceType ? '' : parentName;
+  return RESOURCE_CONTAINER_AT.includes(`${resourceType}.${level}.${elementName}`);
+};
 
 /** Keys that are real child elements — not attributes, not the `<?xml?>` declaration. */
 const elementNames = (record: UnknownRecord): string[] =>
@@ -98,7 +127,7 @@ const toResourceRecord = (
   warnings: WarningLog,
 ): UnknownRecord => ({
   resourceType,
-  ...(isRecord(node) ? toObject(node, resourceType, warnings) : {}),
+  ...(isRecord(node) ? toObject(node, resourceType, resourceType, warnings) : {}),
 });
 
 /** Convert one element node into its FHIR JSON value. */
@@ -106,10 +135,11 @@ const toValue = (
   node: unknown,
   elementName: string,
   parentName: string,
+  resourceType: string,
   warnings: WarningLog,
 ): unknown => {
   if (Array.isArray(node)) {
-    return node.map((item) => toValue(item, elementName, parentName, warnings));
+    return node.map((item) => toValue(item, elementName, parentName, resourceType, warnings));
   }
 
   if (!isRecord(node)) return coercePrimitive(node, elementName, parentName);
@@ -122,12 +152,13 @@ const toValue = (
     return coercePrimitive(primitive, elementName, parentName);
   }
 
-  return toObject(node, elementName, warnings);
+  return toObject(node, elementName, resourceType, warnings);
 };
 
 const toObject = (
   node: UnknownRecord,
   elementName: string,
+  resourceType: string,
   warnings: WarningLog,
 ): UnknownRecord => {
   const result: UnknownRecord = {};
@@ -139,9 +170,14 @@ const toObject = (
       continue;
     }
 
-    const value = resourceContainers.has(key)
+    const value = isResourceContainer(key, elementName, resourceType)
       ? toContainedResources(raw, key, warnings)
-      : applyCardinality(toValue(raw, key, elementName, warnings), key);
+      : applyCardinality(
+          toValue(raw, key, elementName, resourceType, warnings),
+          key,
+          elementName,
+          resourceType,
+        );
 
     if (value !== undefined) assignKey(result, key, value);
   }
@@ -191,14 +227,59 @@ const toContainedResource = (
   return toResourceRecord(node[resourceType], resourceType, warnings);
 };
 
+/** The empty key holds a resource's own repeating elements. */
+const TOP_LEVEL = '';
+
 /**
- * XML cannot say whether a lone element is a single value or a one-item list,
- * so repeating elements are recognised by name. Complex-typed names only array
- * when the value is actually an object, which keeps `Organization.name` (a
- * `0..1` string) scalar while `Patient.name` (a `0..*` HumanName) arrays.
+ * Whether R4 makes this element `0..*`, according to the specification rather
+ * than a guess.
+ *
+ * Looked up by resource type, because the answer is not a property of the name
+ * on its own: `Patient.name` is `0..*` and `Organization.name` is a `0..1`
+ * string. Returns `null` where the table cannot say — an unknown resource
+ * type, or nesting deeper than the digest reaches — and the caller falls back
+ * to the older name-based reading.
  */
-const applyCardinality = (value: unknown, elementName: string): unknown => {
+const repeatsInR4 = (
+  elementName: string,
+  parentName: string,
+  resourceType: string,
+): boolean | null => {
+  // Checked first: the digest omits inherited elements, so without this the
+  // table would confidently answer "no" for `extension`, which repeats on
+  // everything.
+  if (REPEATING_COMMON.includes(elementName)) return true;
+
+  const levels = REPEATING_BY_RESOURCE[resourceType];
+  if (levels === undefined) return null;
+
+  // `parentName` is the resource itself at the top level, and a backbone one
+  // level in. Deeper than that the digest has nothing, so neither do we.
+  const level = parentName === resourceType ? levels[TOP_LEVEL] : (levels[parentName] ?? null);
+  if (level === null || level === undefined) return null;
+
+  return level.includes(elementName);
+};
+
+/**
+ * XML cannot say whether a lone element is a single value or a one-item list.
+ *
+ * Where the specification can answer, it does. Where it cannot — a resource
+ * type R4 does not have, or nesting below the second level — this falls back
+ * to recognising repeating elements by name, which is what the parser did
+ * everywhere before the table existed.
+ */
+const applyCardinality = (
+  value: unknown,
+  elementName: string,
+  parentName: string,
+  resourceType: string,
+): unknown => {
   if (Array.isArray(value)) return value;
+
+  const repeats = repeatsInR4(elementName, parentName, resourceType);
+  if (repeats !== null) return repeats ? [value] : value;
+
   if (REPEATING_PRIMITIVE_ELEMENT.has(elementName)) return [value];
   if (REPEATING_ELEMENT.has(elementName) && isRecord(value)) return [value];
   return value;

@@ -5,6 +5,44 @@ All notable changes to `fhir-normalize`.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.1] — 2026-08-09
+
+### Fixed
+
+- **XML parsing inferred cardinality from a hand-written list of thirty element names.** R4 makes
+  483 element names `0..*`, so 460 of them were unknown: a lone `<jurisdiction>` came back as an
+  object where R4 requires an array, and the same for `useContext`, `reasonCode`, `author` and
+  hundreds more. JSON input was never affected — only XML, which has no schema to contradict the
+  guess.
+
+  Cardinality is now read from the R4 definitions, keyed by resource type, because the answer is not
+  a property of the name alone: `Patient.name` repeats and `Organization.name` is a `0..1` string.
+  That distinction used to be guessed at by checking whether the value looked like an object.
+
+- **Any element named `resource` or `outcome` was treated as a wrapper around a nested resource.**
+  Only two positions in all of R4 genuinely are. The other eighteen were destroyed:
+
+  ```text
+  <Procedure><outcome><text value="Successful"/></outcome></Procedure>
+  before -> { outcome: { resourceType: 'text' } }      the value gone, a type invented
+  after  -> { outcome: { text: 'Successful' } }
+
+  <AuditEvent><outcome value="0"/></AuditEvent>
+  before -> { }                                        the element gone entirely
+  after  -> { outcome: '0' }
+  ```
+
+  Which positions really wrap a resource is now read from the definitions too. `Bundle.entry.resource`,
+  `Parameters.parameter.resource` and `contained` still unwrap as before.
+
+  Found by sweeping all 145 R4 resource types through the XML parser and into `validateBundle`,
+  which was added in 2.3.0. It reported one failure, and the failure was real.
+
+### Notes
+
+- The XML entry point grows from ~77 KB to ~100 KB (~33 KB gzipped) for the cardinality table.
+  Nothing else moves: parsing-only stays at ~13 KB, and the table ships only with the XML adapter.
+
 ## [2.3.0] — 2026-08-09
 
 ### Added

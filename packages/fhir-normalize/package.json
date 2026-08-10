@@ -1,6 +1,6 @@
 {
   "name": "fhir-normalize",
-  "version": "2.3.0",
+  "version": "2.3.1",
   "description": "Ingest healthcare data in multiple formats (FHIR JSON, FHIR XML) and get back one standard shape: a FHIR R4 Bundle, plus a simplified view with FHIR choice types resolved.",
   "keywords": [
     "fhir",
@@ -91,6 +91,7 @@
     "prepack": "node scripts/prepack.mjs",
     "spec:fetch": "node scripts/fetch-r4-spec.mjs",
     "validate:index": "node scripts/generate-validate-index.mjs",
+    "xml:cardinality": "node scripts/generate-xml-cardinality.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
