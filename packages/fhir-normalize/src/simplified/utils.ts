@@ -1,7 +1,7 @@
 import type { Bundle, FhirResource } from 'fhir/r4';
 import { assignKey, isRecord, type UnknownRecord } from '../core';
 import { choiceKeys, resolveChoice } from './choice';
-import { EMPTY_TEXT, FIELD_KIND, VALUE_KIND } from './constants';
+import { EMPTY_TEXT, FIELD_KIND } from './constants';
 import {
   str,
   toAddress,
@@ -164,5 +164,3 @@ export const simplifyBundle = (bundle: Bundle): SimplifiedResource[] =>
     .map((entry) => entry.resource)
     .filter((resource): resource is NonNullable<typeof resource> => resource !== undefined)
     .map(simplifyResource);
-
-export { VALUE_KIND };

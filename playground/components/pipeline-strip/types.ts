@@ -1,6 +1,6 @@
 import type { SourceFormat } from 'fhir-normalize';
 
-export interface StageBadge {
+interface StageBadge {
   text: string;
   empty: boolean;
 }

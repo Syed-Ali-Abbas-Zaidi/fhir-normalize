@@ -110,9 +110,6 @@ export const DEPTH_LIMIT_LABEL = '(nesting beyond the depth limit)';
 /** A FHIR date, dateTime, or instant with at least a month component. */
 export const DATE_PATTERN = /^\d{4}-\d{2}/;
 
-/** Bare `YYYY`, already year-only, so generalizing is a no-op. */
-export const YEAR_PATTERN = /^\d{4}$/;
-
 export const DEFAULT_OPTIONS: Required<Omit<DeIdentifyOptions, 'keep'>> & {
   keep: readonly string[];
 } = {

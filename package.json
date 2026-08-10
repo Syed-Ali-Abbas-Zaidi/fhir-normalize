@@ -4,7 +4,7 @@
   "type": "module",
   "packageManager": "pnpm@11.17.0",
   "engines": {
-    "//": "Development toolchain only \u2014 pnpm 11 requires this. The published package supports Node >=18; see packages/fhir-normalize.",
+    "//": "Development toolchain only — pnpm 11 requires this. The published package supports Node >=18; see packages/fhir-normalize.",
     "node": ">=22.13"
   },
   "scripts": {
@@ -15,9 +15,11 @@
     "typecheck": "pnpm -r typecheck",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
-    "verify": "pnpm build && pnpm lint && pnpm typecheck && pnpm test"
+    "knip": "knip",
+    "verify": "pnpm build && pnpm lint && pnpm knip && pnpm typecheck && pnpm test"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.7"
+    "@biomejs/biome": "^2.5.7",
+    "knip": "^6.32.0"
   }
 }

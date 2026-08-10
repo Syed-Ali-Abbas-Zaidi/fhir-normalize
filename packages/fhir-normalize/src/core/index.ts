@@ -7,9 +7,7 @@ export {
   toResourceRecord,
 } from './bundle';
 export {
-  BUNDLE_NODE,
   BUNDLE_TYPE,
-  BUNDLE_WARNING,
   DEFAULT_BUNDLE_TYPE,
   describeNode,
   describeValue,

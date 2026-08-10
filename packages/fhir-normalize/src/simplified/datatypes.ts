@@ -35,7 +35,7 @@ const label = (parts: readonly (string | null)[], separator = ' '): string =>
   parts.filter((part): part is string => part !== null && part !== '').join(separator) ||
   EMPTY_TEXT;
 
-export const toCoding = (value: unknown): NormalizedCoding => {
+const toCoding = (value: unknown): NormalizedCoding => {
   const record = isRecord(value) ? value : {};
   return {
     system: str(record.system),

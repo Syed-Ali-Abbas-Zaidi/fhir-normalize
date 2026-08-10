@@ -48,6 +48,11 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      # After lint, before typecheck: an unused export is not a type error, so
+      # nothing downstream would notice one.
+      - name: Unused code and dependencies
+        run: pnpm knip
+
       - name: Typecheck
         run: pnpm typecheck
 
