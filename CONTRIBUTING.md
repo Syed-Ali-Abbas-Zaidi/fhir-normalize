@@ -87,9 +87,11 @@ waits for *required* checks, so without them it would merge before CI had report
 Biome handles linting and formatting, and SonarQube Cloud covers what Biome does not — security and
 taint analysis, which matter for a library whose input is untrusted.
 
-It runs on pull requests raised from this repository, and on every push to `main`. A pull request
-from a fork is skipped: it has no access to `SONAR_TOKEN`, so the scan would fail rather than skip,
-and the analysis runs anyway once the change lands on `main`.
+It runs on every push to `main`, and on pull requests that can see `SONAR_TOKEN`. Two kinds cannot,
+and are skipped rather than left to fail: those from a fork, which get no secrets at all, and
+Dependabot's, which are handed a separate secret store the token is deliberately kept out of — that
+job installs the dependency being bumped and runs the suite, so it executes the new code. Nothing is
+lost in either case, because the analysis runs again once the change lands on `main`.
 
 Two parts of `sonar-project.properties` are load-bearing and easy to undo by accident:
 
