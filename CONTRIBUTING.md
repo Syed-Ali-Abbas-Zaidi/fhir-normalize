@@ -84,9 +84,12 @@ waits for *required* checks, so without them it would merge before CI had report
 
 ## Static analysis
 
-Biome handles linting and formatting, and SonarQube Cloud runs on every pull request for the things
-Biome does not cover — security and taint analysis, which matter for a library whose input is
-untrusted.
+Biome handles linting and formatting, and SonarQube Cloud covers what Biome does not — security and
+taint analysis, which matter for a library whose input is untrusted.
+
+It runs on pull requests raised from this repository, and on every push to `main`. A pull request
+from a fork is skipped: it has no access to `SONAR_TOKEN`, so the scan would fail rather than skip,
+and the analysis runs anyway once the change lands on `main`.
 
 Two parts of `sonar-project.properties` are load-bearing and easy to undo by accident:
 
