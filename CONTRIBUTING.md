@@ -82,6 +82,24 @@ The workflow comments on the pull requests it declines to merge, saying which ru
 refuses to merge anything at all unless `main` requires the CI checks: auto-merge is a queue that
 waits for *required* checks, so without them it would merge before CI had reported.
 
+## Static analysis
+
+Biome handles linting and formatting, and SonarQube Cloud runs on every pull request for the things
+Biome does not cover — security and taint analysis, which matter for a library whose input is
+untrusted.
+
+Two parts of `sonar-project.properties` are load-bearing and easy to undo by accident:
+
+- **The generated files and spec digests are excluded.** They are roughly 15,000 lines of machine
+  output. Left in, they dominate every metric and attract findings against files a test regenerates.
+- **The shape tables are excluded from duplication only.** One declarative row per FHIR element is
+  what a table looks like; a duplication detector reads it as copy-paste. The rule is turned off for
+  those files rather than the data restructured to please it.
+
+Coverage reaches Sonar as lcov. `vitest` writes paths relative to the package it ran in and Sonar
+resolves them against the repository root, so the workflow rewrites them in between — without that
+step coverage reads as zero and looks like a project with no tests.
+
 ## Tests
 
 - Runtime behaviour: `*.test.ts`
