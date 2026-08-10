@@ -17,6 +17,8 @@ export default defineConfig({
     },
     coverage: {
       provider: 'v8',
+      // `lcov` is what SonarQube Cloud reads; `text` keeps the local summary.
+      reporter: ['text', 'lcov'],
       include: ['src/**/*.ts'],
       exclude: [
         'src/**/*.test.ts',

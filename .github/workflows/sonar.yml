@@ -1,0 +1,62 @@
+name: SonarQube
+
+# Analysis runs separately from CI rather than as another job in it, because it
+# needs the coverage report and a full-depth checkout, and neither is wanted on
+# the fast path that gates every push.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  scan:
+    name: scan
+    runs-on: ubuntu-latest
+
+    # A fork's pull request has no access to secrets, so the scan cannot run and
+    # would fail rather than being skipped. Nothing is lost: the analysis runs
+    # again once the change is on main.
+    if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push'
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # Sonar reads history to attribute issues to the commit that
+          # introduced them; a shallow clone dates everything to the merge.
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # The playground resolves fhir-normalize from dist/, so its tests need
+      # the library built first — the same ordering CI relies on.
+      - name: Build library
+        run: pnpm --filter fhir-normalize build
+
+      - name: Test with coverage
+        run: pnpm --filter fhir-normalize test:coverage
+
+      # vitest writes paths relative to the package it ran in; Sonar resolves
+      # them against the repository root. Left alone they match nothing and
+      # coverage silently reads as zero, which looks like a project with no
+      # tests rather than a misconfigured path.
+      - name: Make coverage paths repo-relative
+        run: |
+          sed -i 's|^SF:|SF:packages/fhir-normalize/|' packages/fhir-normalize/coverage/lcov.info
+          head -2 packages/fhir-normalize/coverage/lcov.info
+
+      - name: Scan
+        uses: SonarSource/sonarqube-scan-action@fd88b7d7ccbaefd23d8f36f73b59db7a3d246602
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
