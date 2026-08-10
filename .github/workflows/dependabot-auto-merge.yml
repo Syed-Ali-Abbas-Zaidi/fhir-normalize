@@ -1,0 +1,88 @@
+name: Dependabot auto-merge
+
+# Approves and queues a Dependabot pull request for auto-merge, so routine
+# minor and patch updates land without a human in the loop.
+#
+# Auto-merge is a queue, not an instruction to merge now: GitHub holds the pull
+# request until every *required* status check passes. That makes branch
+# protection load-bearing rather than optional here. With no required checks on
+# `main`, this workflow would merge the moment it ran, before CI had said
+# anything — which is worse than having no automation at all.
+
+# `pull_request_target`, not `pull_request`: GitHub hands Dependabot's own
+# events a read-only token with no secrets, so a `pull_request` workflow cannot
+# approve or merge anything. The usual caveat about this trigger is that it runs
+# with write access against the base repository, which is dangerous when a
+# workflow checks out and executes the pull request's code. This one never
+# checks anything out. It reads metadata and calls the API, and adding a
+# checkout step here would be a real vulnerability rather than a style problem.
+on: pull_request_target
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    name: auto-merge
+    runs-on: ubuntu-latest
+    if: github.actor == 'dependabot[bot]'
+
+    steps:
+      # The source of truth for what kind of update this is. Parsing the title
+      # would work until Dependabot rewords it, and a mistake there merges a
+      # major.
+      - name: Read the update metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Production dependencies reach the published package, and CI does not
+      # check everything that matters about them: the README's bundle-size
+      # figures are a public claim no test verifies, and `fast-xml-parser`
+      # alone accounts for ~61KB of every consumer's bundle. Those get a human.
+      - name: Decide whether this one merges itself
+        id: decision
+        env:
+          UPDATE_TYPE: ${{ steps.metadata.outputs.update-type }}
+          DEPENDENCY_TYPE: ${{ steps.metadata.outputs.dependency-type }}
+        run: |
+          eligible=false
+          case "$UPDATE_TYPE" in
+            version-update:semver-minor|version-update:semver-patch)
+              case "$DEPENDENCY_TYPE" in
+                direct:development|indirect) eligible=true ;;
+              esac
+              ;;
+          esac
+          echo "eligible=$eligible" >> "$GITHUB_OUTPUT"
+          echo "$UPDATE_TYPE / $DEPENDENCY_TYPE -> eligible=$eligible"
+
+      - name: Approve
+        if: steps.decision.outputs.eligible == 'true'
+        run: gh pr review --approve "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Queue for auto-merge
+        if: steps.decision.outputs.eligible == 'true'
+        run: gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Says why, on the pull request, rather than leaving someone to work out
+      # from silence whether the automation ran and declined or never fired.
+      - name: Explain why it is waiting for a human
+        if: steps.decision.outputs.eligible != 'true'
+        run: |
+          gh pr comment "$PR_URL" --body "Not auto-merged: \`$UPDATE_TYPE\` on a \`$DEPENDENCY_TYPE\` dependency.
+
+          Auto-merge covers minor and patch updates to development and indirect dependencies. A major update, or anything a consumer of the published package installs, is reviewed by hand — CI does not check the README's bundle-size figures, and a runtime dependency changes what ships."
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          UPDATE_TYPE: ${{ steps.metadata.outputs.update-type }}
+          DEPENDENCY_TYPE: ${{ steps.metadata.outputs.dependency-type }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

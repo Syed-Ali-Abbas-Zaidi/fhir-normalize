@@ -22,6 +22,11 @@ updates:
     labels:
       - dependencies
 
+    # Grouped by dependency type as well as update type, because the two are
+    # merged differently: `.github/workflows/dependabot-auto-merge.yml` lets
+    # development updates through on green CI and holds production ones for a
+    # human. A group mixing both would have to be reviewed either way.
+    #
     # Without grouping this is three directories times every dependency, which
     # is a lot of individual pull requests for a repository this size.
     groups:
