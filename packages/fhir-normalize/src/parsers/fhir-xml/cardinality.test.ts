@@ -103,7 +103,7 @@ describe('only a real resource container wraps a nested resource', () => {
     ).toEqual([{ code: 'Patient' }]);
   });
 
-  it('still unwraps the two places FHIR really nests a resource', () => {
+  it('still unwraps Bundle.entry.resource', () => {
     const { bundle } = createDefaultNormalizer()
       .register(fhirXmlParser)
       .parse(
@@ -111,6 +111,19 @@ describe('only a real resource container wraps a nested resource', () => {
       );
 
     expect(bundle.entry?.[0]?.resource).toMatchObject({ resourceType: 'Patient', id: 'p' });
+  });
+
+  it('still unwraps Parameters.parameter.resource', () => {
+    // The other half of the pair. Asserting the generated list has two entries
+    // does not prove the parser honours the second one.
+    const resource = parse(
+      '<Parameters><parameter><name value="patient"/>' +
+        '<resource><Patient><id value="p1"/></Patient></resource></parameter></Parameters>',
+    );
+
+    expect(resource.parameter).toEqual([
+      { name: 'patient', resource: { resourceType: 'Patient', id: 'p1' } },
+    ]);
   });
 
   it('still unwraps contained resources, which are inherited', () => {

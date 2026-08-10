@@ -22,7 +22,7 @@ follows [semantic versioning](https://semver.org/spec/v2.0.0.html).
 - **Any element named `resource` or `outcome` was treated as a wrapper around a nested resource.**
   Only two positions in all of R4 genuinely are. The other eighteen were destroyed:
 
-  ```
+  ```text
   <Procedure><outcome><text value="Successful"/></outcome></Procedure>
   before -> { outcome: { resourceType: 'text' } }      the value gone, a type invented
   after  -> { outcome: { text: 'Successful' } }
