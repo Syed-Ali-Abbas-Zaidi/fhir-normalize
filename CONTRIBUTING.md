@@ -71,6 +71,17 @@ Work on a branch, open a pull request, and let CI run. A few conventions:
   moves them, measure again and update the table. The heavy parts live behind subpaths precisely so
   that a consumer who does not import them does not pay for them.
 
+## Dependency updates
+
+Dependabot opens grouped pull requests weekly. Minor and patch updates to development and indirect
+dependencies approve and merge themselves once CI is green. Anything else waits for a person: a
+major update, or any update to a dependency that reaches the published package, since CI does not
+check the README's bundle-size figures and a runtime dependency changes what consumers install.
+
+The workflow comments on the pull requests it declines to merge, saying which rule applied. It also
+refuses to merge anything at all unless `main` requires the CI checks: auto-merge is a queue that
+waits for *required* checks, so without them it would merge before CI had reported.
+
 ## Tests
 
 - Runtime behaviour: `*.test.ts`
