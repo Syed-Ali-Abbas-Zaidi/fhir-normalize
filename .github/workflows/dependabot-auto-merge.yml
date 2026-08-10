@@ -37,7 +37,7 @@ jobs:
         # Pinned to a commit, not the `v2` tag. This workflow runs with write
         # access on `pull_request_target`, so a tag that moves is a tag someone
         # else can move. 21025c7 is v2.5.0.
-        uses: dependabot/fetch-metadata@21025c705c08248db411dc16f3619e6b5f9ea21a
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
