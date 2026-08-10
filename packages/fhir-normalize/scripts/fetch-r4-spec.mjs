@@ -3,6 +3,7 @@
  * Regenerates the spec digests the conformance tests check against:
  *
  *   spec/r4-elements.json     every R4 element, with type and cardinality
+ *   spec/r4-common.json       what Resource and DomainResource give everything
  *   spec/stu3-keys.json       the payload keys an STU3 resource can carry
  *   spec/r5-keys.json         the same for R5
  *
@@ -58,20 +59,24 @@ const definitionsFor = (release) => {
 
     const bundle = JSON.parse(readFileSync(join(work, 'profiles-resources.json'), 'utf8'));
 
+    // Abstract types are kept here and filtered by the caller: `Resource` and
+    // `DomainResource` are where the inherited elements are defined, and the
+    // validator needs their cardinality.
     return (bundle.entry ?? [])
       .map((entry) => entry.resource)
       .filter(
         (resource) =>
           resource?.resourceType === 'StructureDefinition' &&
           resource.kind === 'resource' &&
-          resource.derivation !== 'constraint' &&
-          resource.abstract !== true,
+          resource.derivation !== 'constraint',
       )
       .sort((a, b) => a.name.localeCompare(b.name));
   } finally {
     rmSync(work, { recursive: true, force: true });
   }
 };
+
+const concrete = (definitions) => definitions.filter((d) => d.abstract !== true);
 
 /** What the digest records about one element. */
 const entryFor = (element, choice) => {
@@ -170,7 +175,37 @@ const write = (filename, digest, describe) => {
 
 const r4 = definitionsFor('R4');
 
-write('r4-elements.json', elementDigest(r4), (d) => {
+/**
+ * The elements every resource inherits, which the element digest deliberately
+ * leaves out so the shape tables are not asked to declare plumbing.
+ *
+ * Validation still has to check them: `extension` is `0..*`, and a payload
+ * carrying a single object there is malformed in a way nothing else catches.
+ * Read from the two abstract definitions rather than written down, because
+ * nine cardinalities typed from memory is exactly the kind of claim this
+ * repository does not make.
+ */
+const commonElements = () => {
+  const out = {};
+
+  for (const name of ['Resource', 'DomainResource']) {
+    const definition = r4.find((d) => d.name === name);
+    if (definition === undefined) throw new Error(`${name} is missing from the definitions`);
+
+    for (const element of definition.snapshot?.element ?? []) {
+      const parts = element.path.split('.');
+      if (parts.length !== 2 || !INHERITED.has(parts[1])) continue;
+
+      out[parts[1]] = { list: element.max === '*', required: (element.min ?? 0) > 0 };
+    }
+  }
+
+  return out;
+};
+
+write('r4-common.json', commonElements(), (d) => `${Object.keys(d).length} inherited elements`);
+
+write('r4-elements.json', elementDigest(concrete(r4)), (d) => {
   const elements = Object.values(d).reduce((total, f) => total + Object.keys(f).length, 0);
   return `${Object.keys(d).length} resources, ${elements} elements`;
 });
@@ -179,7 +214,7 @@ for (const [release, filename] of [
   ['STU3', 'stu3-keys.json'],
   ['R5', 'r5-keys.json'],
 ]) {
-  write(filename, keyDigest(definitionsFor(release)), (d) => {
+  write(filename, keyDigest(concrete(definitionsFor(release))), (d) => {
     const keys = Object.values(d).reduce((total, k) => total + k.length, 0);
     return `${Object.keys(d).length} resources, ${keys} keys`;
   });

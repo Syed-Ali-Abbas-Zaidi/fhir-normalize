@@ -10,6 +10,7 @@
       "!**/next-env.d.ts",
       "!**/spec/*.json",
       "!**/fields.generated.ts",
+      "!**/r4-index.generated.ts",
       "!**/.claude"
     ]
   },

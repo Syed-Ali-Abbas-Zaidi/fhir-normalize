@@ -31,7 +31,7 @@ import type { Bundle, FhirResource } from 'fhir-normalize';
 
 ## Status
 
-`2.2.2`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform`, and the `Normalizer`
+`2.3.0`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform`, and the `Normalizer`
 methods — is stable under semver; anything breaking lands in a major.
 
 | Format | Status |
@@ -43,6 +43,7 @@ methods — is stable under semver; anything breaking lands in a major.
 | Simplified view (choice types resolved) | ✅ Supported (every section, 147 types) |
 | Flat rows out, for CSV and tabular loads | ✅ Supported (via `fhir-normalize/simplified`) |
 | De-identification | ✅ Supported (structural; see the limits below) |
+| R4 conformance checking | ✅ Supported (structural; via `fhir-normalize/validate`) |
 | HL7 v2, C-CDA, CSV **in** | 📋 Later |
 
 ## Install
@@ -69,7 +70,7 @@ Ships ESM + CJS with generated type declarations. No runtime configuration requi
 
 ### Import paths and bundle size
 
-The package has four entry points. The root re-exports the JSON-family parsers and the simplified
+The package has five entry points. The root re-exports the JSON-family parsers and the simplified
 and de-identify layers, so a single import still works; the subpaths let a bundler leave out what
 you do not use.
 
@@ -78,6 +79,7 @@ import { createDefaultNormalizer } from 'fhir-normalize';              // parsin
 import { simplifyBundle, formatShape, toRows } from 'fhir-normalize/simplified';
 import { deIdentifyBundle } from 'fhir-normalize/deidentify';
 import { fhirXmlParser } from 'fhir-normalize/xml';                    // opt in
+import { validateBundle } from 'fhir-normalize/validate';              // opt in
 ```
 
 `toRows` is the one export the root does not re-export: it serves the `/simplified` subpath only,
@@ -91,6 +93,7 @@ The 147 resource shape tables are the bulk of the library, and they only ship if
 | parsing only | **~13 KB** |
 | parsing + the simplified view | ~78 KB |
 | parsing + XML | ~77 KB |
+| validation, on its own | ~80 KB (~15 KB gzipped) |
 
 These are what a bundler actually emits, `fast-xml-parser` included — not library code with the
 dependency excluded.
@@ -228,6 +231,40 @@ also means "unreported". If that matters to you, `simplifyResource().unmapped` n
 that is not an element of the resource in R4 — see [the simplified view](#one-predictable-shape-per-resource).
 
 Inspect or extend the table via the exported `VERSION_MIGRATION`.
+
+### Checking that a payload really is R4
+
+The passed-through elements above are exactly what validation reports. It reads the same digest of
+the published R4 `StructureDefinition`s that the test suite checks the library's own tables against:
+
+```ts
+import { createDefaultNormalizer } from 'fhir-normalize';
+import { validateBundle } from 'fhir-normalize/validate';
+
+const { bundle } = createDefaultNormalizer().parse(raw);
+
+for (const issue of validateBundle(bundle)) {
+  console.log(issue.severity, issue.path, issue.message);
+}
+// warning  Bundle.entry[0].resource.informationSource   R4 defines no such element on MedicationRequest.
+```
+
+`validateResource(resource)` does one resource. Both return a flat array rather than throwing, so a
+payload with fifty problems reports fifty.
+
+| Severity | What it means |
+| --- | --- |
+| `error` | Structural: wrong cardinality, an empty array, a missing required element, or a choice carrying a type R4 forbids. Anything reading the payload as R4 will be wrong about it. |
+| `warning` | R4 defines no such element, or no such resource type. Usually an extension-adjacent field or one from another release — common enough that treating it as an error makes the report unreadable. |
+
+It descends one level into backbone elements, so a bad value inside `Observation.component` is
+reported with the index that finds it: `Observation.component[1].valueNonsense`.
+
+> [!NOTE]
+> **This is structural conformance against base R4, not the official validator.** It does not check
+> terminology bindings, profiles and implementation guides such as US Core, FHIRPath invariants, or
+> anything deeper than one level inside a backbone element. It answers "are these the right element
+> names, in the right shapes" and nothing more.
 
 Fields it passes through are still visible in the simplified view: a choice element only accepts a
 type R4 permits, so STU3 `Consent.sourceIdentifier` and R5 `Observation.valueReference` are reported

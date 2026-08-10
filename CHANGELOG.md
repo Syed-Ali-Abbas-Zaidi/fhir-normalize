@@ -5,6 +5,60 @@ All notable changes to `fhir-normalize`.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] — 2026-08-09
+
+### Added
+
+- **`fhir-normalize/validate` — check that a payload really is R4.** The library's central promise
+  is that what comes out is a FHIR R4 Bundle, and nothing checked it at runtime. The suite verifies
+  the library's *own* tables against vendored spec digests; a caller had no way to ask the same
+  question of their data.
+
+  ```ts
+  import { validateBundle } from 'fhir-normalize/validate';
+
+  for (const issue of validateBundle(bundle)) {
+    console.log(issue.severity, issue.path, issue.message);
+  }
+  ```
+
+  `validateResource(resource)` does one. Both return a flat array rather than throwing, so a payload
+  with fifty problems reports fifty.
+
+  | Severity | Reported |
+  | --- | --- |
+  | `error` | Wrong cardinality either way, an empty array (not valid FHIR JSON), a missing required element, or a choice carrying a type R4 forbids |
+  | `warning` | An element R4 does not define, or a resource type it does not have |
+
+  The split is deliberate. A cross-version payload can carry hundreds of elements R4 has no entry
+  for, and a report that calls every one an error is a report nobody reads twice. Structural
+  violations, which make anything reading the payload as R4 wrong about it, are errors.
+
+  It descends one level into backbone elements, so a bad value inside `Observation.component` is
+  reported at `Observation.component[1].valueNonsense`.
+
+- **This makes the biggest documented limitation visible.** The migration table covers 14 of 794
+  cross-version element differences and the README has always said the other ~780 pass through
+  untouched with nothing reporting them. An R5 element on an R4 resource is, by definition, an
+  element R4 does not define, so validation surfaces them without anyone guessing at 780 migrations.
+
+### Notes
+
+- The elements every resource inherits — `extension`, `contained`, `id` and the rest — are checked
+  too, with cardinality read from the `Resource` and `DomainResource` definitions rather than
+  written down. `extension` given a single object instead of an array is the commonest way a real
+  payload is malformed, and a name-only skip list would have let it through.
+- `validateBundle` validates the Bundle itself as well as what is in it, so a missing `type` or a
+  non-array `entry` is reported rather than assumed away.
+- Judged against `src/validate/r4-index.generated.ts`, generated from the same
+  `spec/r4-elements.json` the conformance suite uses. A test regenerates it and fails if the
+  committed copy differs, so the validator cannot drift from the specification.
+- Its own entry point: ~80 KB bundled, ~15 KB gzipped, and nothing for anyone who does not import
+  it. Parsing-only bundles stay at ~13 KB.
+- Structural conformance against base R4 only. No terminology bindings, no profiles or
+  implementation guides, no FHIRPath invariants, nothing deeper than one level inside a backbone.
+  It is not a substitute for the official validator and the README says so.
+
 ## [2.2.2] — 2026-08-09
 
 ### Fixed
