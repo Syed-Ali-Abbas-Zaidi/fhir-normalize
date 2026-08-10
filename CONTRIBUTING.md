@@ -78,7 +78,9 @@ dependencies approve and merge themselves once CI is green. Anything else waits 
 major update, or any update to a dependency that reaches the published package, since CI does not
 check the README's bundle-size figures and a runtime dependency changes what consumers install.
 
-The workflow comments on the pull requests it declines to merge, saying which rule applied.
+The workflow comments on the pull requests it declines to merge, saying which rule applied. It also
+refuses to merge anything at all unless `main` requires the CI checks: auto-merge is a queue that
+waits for *required* checks, so without them it would merge before CI had reported.
 
 ## Tests
 

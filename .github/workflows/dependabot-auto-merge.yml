@@ -34,7 +34,10 @@ jobs:
       # major.
       - name: Read the update metadata
         id: metadata
-        uses: dependabot/fetch-metadata@v2
+        # Pinned to a commit, not the `v2` tag. This workflow runs with write
+        # access on `pull_request_target`, so a tag that moves is a tag someone
+        # else can move. 21025c7 is v2.5.0.
+        uses: dependabot/fetch-metadata@21025c705c08248db411dc16f3619e6b5f9ea21a
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -42,11 +45,27 @@ jobs:
       # check everything that matters about them: the README's bundle-size
       # figures are a public claim no test verifies, and `fast-xml-parser`
       # alone accounts for ~61KB of every consumer's bundle. Those get a human.
+      # Auto-merge waits for *required* checks, so with none configured it
+      # merges at once. The workflow cannot assume that setting is in place, and
+      # a comment in a file is not an enforcement mechanism, so it checks.
+      - name: Confirm CI is actually required on the base branch
+        id: gate
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          BASE: ${{ github.event.pull_request.base.ref }}
+        run: |
+          required=$(gh api "repos/$REPO/branches/$BASE/protection/required_status_checks" \
+            --jq '.contexts | length' 2>/dev/null || echo 0)
+          echo "required_checks=$required" >> "$GITHUB_OUTPUT"
+          echo "$BASE has $required required status check(s)"
+
       - name: Decide whether this one merges itself
         id: decision
         env:
           UPDATE_TYPE: ${{ steps.metadata.outputs.update-type }}
           DEPENDENCY_TYPE: ${{ steps.metadata.outputs.dependency-type }}
+          REQUIRED_CHECKS: ${{ steps.gate.outputs.required_checks }}
         run: |
           eligible=false
           case "$UPDATE_TYPE" in
@@ -56,8 +75,15 @@ jobs:
               esac
               ;;
           esac
+
+          # Eligible but unguarded means merging before CI has run. Decline.
+          if [ "$eligible" = true ] && [ "$REQUIRED_CHECKS" -eq 0 ]; then
+            eligible=false
+            echo "reason=unprotected" >> "$GITHUB_OUTPUT"
+          fi
+
           echo "eligible=$eligible" >> "$GITHUB_OUTPUT"
-          echo "$UPDATE_TYPE / $DEPENDENCY_TYPE -> eligible=$eligible"
+          echo "$UPDATE_TYPE / $DEPENDENCY_TYPE, $REQUIRED_CHECKS required -> eligible=$eligible"
 
       - name: Approve
         if: steps.decision.outputs.eligible == 'true'
@@ -78,10 +104,18 @@ jobs:
       - name: Explain why it is waiting for a human
         if: steps.decision.outputs.eligible != 'true'
         run: |
-          gh pr comment "$PR_URL" --body "Not auto-merged: \`$UPDATE_TYPE\` on a \`$DEPENDENCY_TYPE\` dependency.
+          if [ "$REASON" = unprotected ]; then
+            gh pr comment "$PR_URL" --body "Not auto-merged: \`$BASE\` has no required status checks.
+
+          Auto-merge would queue this and merge it straight away, before CI reported. Require the CI checks on \`$BASE\` and this will start working on the next update."
+          else
+            gh pr comment "$PR_URL" --body "Not auto-merged: \`$UPDATE_TYPE\` on a \`$DEPENDENCY_TYPE\` dependency.
 
           Auto-merge covers minor and patch updates to development and indirect dependencies. A major update, or anything a consumer of the published package installs, is reviewed by hand — CI does not check the README's bundle-size figures, and a runtime dependency changes what ships."
+          fi
         env:
+          BASE: ${{ github.event.pull_request.base.ref }}
+          REASON: ${{ steps.decision.outputs.reason }}
           PR_URL: ${{ github.event.pull_request.html_url }}
           UPDATE_TYPE: ${{ steps.metadata.outputs.update-type }}
           DEPENDENCY_TYPE: ${{ steps.metadata.outputs.dependency-type }}
