@@ -18,12 +18,40 @@ jobs:
     name: scan
     runs-on: ubuntu-latest
 
-    # A fork's pull request has no access to secrets, so the scan cannot run and
-    # would fail rather than being skipped. Nothing is lost: the analysis runs
-    # again once the change is on main.
-    if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push'
+    # Skipped whenever the run cannot see SONAR_TOKEN, which is not the same
+    # question as "is this a fork". A fork's pull request gets no secrets at
+    # all. A Dependabot pull request is raised from a branch in this repository,
+    # so a fork check passes it, but the run is handed the separate Dependabot
+    # secret store and `secrets.SONAR_TOKEN` is empty there — the scanner
+    # reports that as "Not authorized or project not found", which reads like a
+    # broken token rather than an absent one.
+    #
+    # The token deliberately stays out of the Dependabot store. This job installs
+    # the dependency being bumped and runs the suite, so it executes the new
+    # code; handing that a credential is what separate stores exist to prevent.
+    # Nothing is lost either way, because the analysis runs again on main.
+    #
+    # `github.actor` rather than the pull request author, because it tracks
+    # secret availability exactly: once a person pushes to a Dependabot branch,
+    # the run is theirs and the secrets are back.
+    if: >-
+      github.event_name == 'push' ||
+      (github.event.pull_request.head.repo.full_name == github.repository &&
+      github.actor != 'dependabot[bot]')
 
     steps:
+      # Fails in seconds with a usable message instead of two minutes later with
+      # the scanner's. If this ever fires the condition above has a gap, or the
+      # secret has been removed or has expired.
+      - name: Confirm the token reached this run
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          if [ -z "$SONAR_TOKEN" ]; then
+            echo "::error::SONAR_TOKEN is empty for this run. Check the repository secret exists and has not expired."
+            exit 1
+          fi
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
