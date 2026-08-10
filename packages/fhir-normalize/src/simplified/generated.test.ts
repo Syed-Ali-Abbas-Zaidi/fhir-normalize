@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { RESOURCE_SHAPE } from './shapes';
 
@@ -24,7 +25,9 @@ describe('the generated field types match the shape tables', () => {
 
     // Writes the same path, so a mismatch means the committed file is stale.
     execFileSync('node', ['scripts/generate-field-types.mjs'], {
-      cwd: new URL('../..', import.meta.url).pathname,
+      // `pathname` percent-encodes, so a checkout under a path with a space
+      // becomes a cwd that does not exist.
+      cwd: fileURLToPath(new URL('../..', import.meta.url)),
       stdio: 'ignore',
     });
 

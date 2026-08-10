@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { FHIR_TYPE_NAMES, R4_INDEX } from './r4-index.generated';
 
@@ -17,7 +18,9 @@ describe('the generated R4 index matches the spec digest', () => {
     const before = readFileSync(GENERATED, 'utf8');
 
     execFileSync('node', ['scripts/generate-validate-index.mjs'], {
-      cwd: new URL('../..', import.meta.url).pathname,
+      // `pathname` percent-encodes, so a checkout under a path with a space
+      // becomes a cwd that does not exist.
+      cwd: fileURLToPath(new URL('../..', import.meta.url)),
       stdio: 'ignore',
     });
 

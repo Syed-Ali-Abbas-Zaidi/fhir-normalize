@@ -180,3 +180,79 @@ describe('validateBundle says which entry a problem came from', () => {
     ).toEqual([]);
   });
 });
+
+describe('the elements every resource inherits are checked, not skipped', () => {
+  // Absent from the per-resource index, because the shape tables are not asked
+  // to declare plumbing. Skipping them by name let a malformed `extension`
+  // through, which is the most common repeating element in real FHIR.
+  it.each([
+    ['extension', { extension: { url: 'http://example.org/x' } }, VALIDATION_CODE.EXPECTED_LIST],
+    ['contained', { contained: { resourceType: 'Patient' } }, VALIDATION_CODE.EXPECTED_LIST],
+    ['modifierExtension', { modifierExtension: {} }, VALIDATION_CODE.EXPECTED_LIST],
+    ['id', { id: ['a', 'b'] }, VALIDATION_CODE.EXPECTED_SINGLE],
+    ['meta', { meta: [{ versionId: '1' }] }, VALIDATION_CODE.EXPECTED_SINGLE],
+  ])('reports %s given the wrong cardinality', (_label, extra, code) => {
+    expect(codes(validateResource({ resourceType: 'Patient', ...extra }))).toContain(code);
+  });
+
+  it('accepts them when they are shaped correctly', () => {
+    expect(
+      validateResource({
+        resourceType: 'Patient',
+        id: 'p1',
+        meta: { versionId: '1' },
+        extension: [{ url: 'http://example.org/x', valueString: 'v' }],
+        contained: [{ resourceType: 'Practitioner', id: 'pr1' }],
+      }),
+    ).toEqual([]);
+  });
+
+  it('never reports resourceType, which is the discriminator rather than an element', () => {
+    expect(codes(validateResource({ resourceType: 'Patient' }))).toEqual([]);
+  });
+});
+
+describe('validateBundle checks the Bundle itself, not only what is inside it', () => {
+  it('reports a Bundle missing its required type', () => {
+    const issues = validateBundle({ resourceType: 'Bundle' } as never);
+
+    expect(issues.map((i) => i.path)).toContain('Bundle.type');
+  });
+
+  it('reports an element R4 does not give a Bundle', () => {
+    const issues = validateBundle({
+      resourceType: 'Bundle',
+      type: 'collection',
+      nonsense: 1,
+    } as never);
+
+    expect(issues.map((i) => i.path)).toContain('Bundle.nonsense');
+  });
+
+  it('reports a non-array entry rather than throwing on it', () => {
+    // This used to reach `.flatMap` on an object and raise a TypeError, which
+    // is the one thing a function whose job is reporting problems must not do.
+    const call = () =>
+      validateBundle({
+        resourceType: 'Bundle',
+        type: 'collection',
+        entry: { resource: { resourceType: 'Patient' } },
+      } as never);
+
+    expect(call).not.toThrow();
+    expect(codes(call())).toContain(VALIDATION_CODE.EXPECTED_LIST);
+  });
+
+  it('does not report an entry resource twice', () => {
+    // The wrapper pass descends into `entry`, and the per-entry pass validates
+    // each resource. `entry.resource` carries no children in the index, so the
+    // two do not overlap.
+    const issues = validateBundle({
+      resourceType: 'Bundle',
+      type: 'collection',
+      entry: [{ resource: { resourceType: 'Patient', gendre: 'female' } }],
+    } as never);
+
+    expect(issues.map((i) => i.path)).toEqual(['Bundle.entry[0].resource.gendre']);
+  });
+});

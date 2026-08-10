@@ -44,6 +44,12 @@ follows [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Notes
 
+- The elements every resource inherits — `extension`, `contained`, `id` and the rest — are checked
+  too, with cardinality read from the `Resource` and `DomainResource` definitions rather than
+  written down. `extension` given a single object instead of an array is the commonest way a real
+  payload is malformed, and a name-only skip list would have let it through.
+- `validateBundle` validates the Bundle itself as well as what is in it, so a missing `type` or a
+  non-array `entry` is reported rather than assumed away.
 - Judged against `src/validate/r4-index.generated.ts`, generated from the same
   `spec/r4-elements.json` the conformance suite uses. A test regenerates it and fails if the
   committed copy differs, so the validator cannot drift from the specification.

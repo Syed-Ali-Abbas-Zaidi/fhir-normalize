@@ -16,6 +16,14 @@ const digest = JSON.parse(
 );
 
 /**
+ * What every resource inherits from Resource and DomainResource. Absent from
+ * the element digest because the shape tables are not asked to declare
+ * plumbing, but a payload can still get them wrong: `extension` is `0..*`, and
+ * a single object there is malformed.
+ */
+const common = JSON.parse(readFileSync(new URL('../spec/r4-common.json', import.meta.url), 'utf8'));
+
+/**
  * Keeps only what validation reads. `types` is carried for a choice, because
  * the permitted set is what tells `valueQuantity` from `valueReference`, and
  * dropped elsewhere where knowing the datatype would not change any answer.
@@ -73,6 +81,15 @@ import type { IndexedElement } from './types';
 
 export const R4_INDEX: Readonly<Record<string, Readonly<Record<string, IndexedElement>>>> =
   ${JSON.stringify(index, null, 2).replace(/\n/g, '\n  ')};
+
+export const COMMON_ELEMENTS: Readonly<Record<string, IndexedElement>> =
+  ${JSON.stringify(
+    Object.fromEntries(
+      Object.entries(common).map(([name, e]) => [name, e.list ? { list: true } : {}]),
+    ),
+    null,
+    2,
+  ).replace(/\n/g, '\n  ')};
 
 /** Lowercased, because the spec writes \`string\` and a payload writes \`valueString\`. */
 export const FHIR_TYPE_NAMES: ReadonlySet<string> = new Set(

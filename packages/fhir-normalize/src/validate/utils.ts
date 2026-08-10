@@ -1,12 +1,12 @@
 import type { Bundle } from 'fhir/r4';
 import { isRecord, type UnknownRecord } from '../core';
 import {
-  COMMON_ELEMENT,
+  DISCRIMINATOR,
   VALIDATION_CODE,
   VALIDATION_MESSAGE,
   VALIDATION_SEVERITY,
 } from './constants';
-import { FHIR_TYPE_NAMES, R4_INDEX } from './r4-index.generated';
+import { COMMON_ELEMENTS, FHIR_TYPE_NAMES, R4_INDEX } from './r4-index.generated';
 import type { IndexedElement, ValidationIssue } from './types';
 
 const capitalize = (value: string): string => `${value.slice(0, 1).toUpperCase()}${value.slice(1)}`;
@@ -159,9 +159,12 @@ const checkRecord = (
   const keys = payloadKeys(elements);
 
   for (const [key, value] of Object.entries(record)) {
-    if (COMMON_ELEMENT.has(key)) continue;
+    if (key === DISCRIMINATOR) continue;
 
-    const element = keys.get(key);
+    // Inherited elements are absent from the per-resource index but still have
+    // a cardinality worth checking — `extension` given a single object is
+    // malformed, and skipping the name entirely would let that through.
+    const element = keys.get(key) ?? COMMON_ELEMENTS[key];
     if (element === undefined) {
       issues.push(unrecognised(key, elements, `${path}.${key}`, resourceType));
       continue;
@@ -217,8 +220,24 @@ export const validateResource = (resource: unknown, at = ''): ValidationIssue[] 
   return issues;
 };
 
-/** Check every resource in a Bundle, with paths that name the entry. */
-export const validateBundle = (bundle: Bundle): ValidationIssue[] =>
-  (bundle.entry ?? []).flatMap((entry, index) =>
-    validateResource(entry.resource, `Bundle.entry[${index}].resource`),
+/**
+ * Check a Bundle and everything in it.
+ *
+ * The wrapper is a resource with its own contract — `type` is required, and
+ * `entry` must be an array — so it is validated too rather than treated as a
+ * container that is assumed correct. Descending into `entry` stops at
+ * `entry.resource`, which the index carries no children for, so each resource
+ * is reported once by the pass below and not twice.
+ */
+export const validateBundle = (bundle: Bundle): ValidationIssue[] => {
+  const issues = validateResource(bundle);
+
+  const { entry } = bundle;
+  if (!Array.isArray(entry)) return issues;
+
+  return issues.concat(
+    entry.flatMap((item, index) =>
+      isRecord(item) ? validateResource(item.resource, `Bundle.entry[${index}].resource`) : [],
+    ),
   );
+};

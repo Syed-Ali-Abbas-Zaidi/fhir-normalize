@@ -36,17 +36,8 @@ export const VALIDATION_MESSAGE = {
 } as const;
 
 /**
- * Present on any resource, from `Resource` and `DomainResource`, so absent
- * from the per-resource index and never an unknown element.
+ * Not an element at all — the JSON discriminator that says which resource this
+ * is. Everything else a resource inherits lives in `COMMON_ELEMENTS` in the
+ * generated index, with its cardinality, so it is checked rather than skipped.
  */
-export const COMMON_ELEMENT: ReadonlySet<string> = new Set([
-  'resourceType',
-  'id',
-  'meta',
-  'implicitRules',
-  'language',
-  'text',
-  'contained',
-  'extension',
-  'modifierExtension',
-]);
+export const DISCRIMINATOR = 'resourceType';
