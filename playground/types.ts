@@ -68,7 +68,7 @@ export interface RowCellOption {
  * differ only by position — so the key is assigned where the table is built,
  * the same way {@link ResourceSummary} does it.
  */
-export interface RenderRow {
+interface RenderRow {
   key: string;
   cells: Record<string, Cell>;
 }

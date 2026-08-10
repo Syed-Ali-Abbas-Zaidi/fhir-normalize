@@ -8,7 +8,7 @@ exist because getting them wrong was expensive at some point. This page is mainl
 ```bash
 pnpm install
 pnpm --filter fhir-normalize build   # the playground and its tests resolve dist/
-pnpm verify                          # build, lint, typecheck, test
+pnpm verify                          # build, lint, knip, typecheck, test
 ```
 
 `pnpm verify` is what CI runs. If it passes locally it will almost certainly pass on the PR.
@@ -49,8 +49,8 @@ If one of those tests fails, the usual answer is that the code is wrong rather t
 Two things are generated. Editing them by hand will be reverted by a test.
 
 - `src/simplified/fields.generated.ts` — the per-resource field types. Run
-  `node scripts/generate-field-types.mjs` from the package directory after changing a shape table.
-  A test regenerates it and fails if the committed copy differs.
+  `pnpm --filter fhir-normalize fields:types` after changing a shape table. A test regenerates it
+  and fails if the committed copy differs.
 - `spec/*.json` — see the table above. These change only when the FHIR definitions do, which for a
   frozen release is never.
 
@@ -98,6 +98,16 @@ Two parts of `sonar-project.properties` are load-bearing and easy to undo by acc
 - **The shape tables are excluded from duplication only.** One declarative row per FHIR element is
   what a table looks like; a duplication detector reads it as copy-paste. The rule is turned off for
   those files rather than the data restructured to please it.
+
+`knip` covers a third thing neither of them does: code nothing reaches. An unused export is not a
+type error and not a lint violation, so without it the only signal is someone noticing. It runs in
+CI and in `pnpm verify`, and fails on a finding rather than reporting one.
+
+Its configuration is deliberately one entry, in `knip.jsonc`. Knip reads `include` from the vitest
+config but not `typecheck.include`, so the type-level suite would read as an unreferenced file, and
+the exports only it consumes would read as dead. Everything else is knip's own defaults, which is
+the point: an ignore list is how this kind of tool stops finding anything. If knip flags something,
+the first assumption should be that it is right.
 
 Coverage reaches Sonar as lcov. `vitest` writes paths relative to the package it ran in and Sonar
 resolves them against the repository root, so the workflow rewrites them in between — without that

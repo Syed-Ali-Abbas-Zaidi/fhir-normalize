@@ -90,6 +90,7 @@
     "build": "tsup",
     "prepack": "node scripts/prepack.mjs",
     "spec:fetch": "node scripts/fetch-r4-spec.mjs",
+    "fields:types": "node scripts/generate-field-types.mjs",
     "validate:index": "node scripts/generate-validate-index.mjs",
     "xml:cardinality": "node scripts/generate-xml-cardinality.mjs",
     "test": "vitest run",

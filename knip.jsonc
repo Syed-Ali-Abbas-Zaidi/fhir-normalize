@@ -1,0 +1,14 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
+  "workspaces": {
+    "packages/fhir-normalize": {
+      // Knip reads `include` from the vitest config but not `typecheck.include`,
+      // so the type-level suite would read as an unreferenced file and the
+      // exports it is the only consumer of would read as dead. Both suites are
+      // listed here so neither depends on which one knip happens to discover.
+      "vitest": {
+        "entry": ["vitest.config.ts", "src/**/*.test.ts", "src/**/*.test-d.ts"]
+      }
+    }
+  }
+}
