@@ -31,7 +31,7 @@ import type { Bundle, FhirResource } from 'fhir-normalize';
 
 ## Status
 
-`2.3.0`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform`, and the `Normalizer`
+`2.3.1`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform`, and the `Normalizer`
 methods — is stable under semver; anything breaking lands in a major.
 
 | Format | Status |
@@ -92,7 +92,7 @@ The 147 resource shape tables are the bulk of the library, and they only ship if
 | --- | --- |
 | parsing only | **~13 KB** |
 | parsing + the simplified view | ~78 KB |
-| parsing + XML | ~77 KB |
+| parsing + XML | ~100 KB (~33 KB gzipped) |
 | validation, on its own | ~80 KB (~15 KB gzipped) |
 
 These are what a bundler actually emits, `fast-xml-parser` included — not library code with the
@@ -143,8 +143,10 @@ normalizer.parse('<Patient><id value="x"/><gender value="male"/></Patient>');
 **XML carries no schema, so two things are inferred** — and every XML parse says so in
 `meta.warnings`:
 
-- **Cardinality.** A lone `<name>` is indistinguishable from a one-item list, so repeating
-  elements are recognised by name. Elements outside that set stay scalar when they occur once.
+- **Cardinality.** A lone `<name>` is indistinguishable from a one-item list, so whether an element
+  repeats is read from the R4 definitions, per resource type — `Patient.name` arrays and
+  `Organization.name`, a `0..1` string, does not. Below the second level, which is as deep as the
+  spec digest reaches, it falls back to recognising repeating elements by name.
 - **Primitive types.** Everything in XML is a string. Types are recovered only where the spec is
   unambiguous — `value[x]` suffixes encode their own type (`valueInteger` → number), plus a few
   fixed-type names. Anything else stays a string, deliberately: `<postalCode value="02134"/>`
