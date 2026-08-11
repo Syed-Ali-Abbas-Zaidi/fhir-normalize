@@ -71,11 +71,23 @@ export class Normalizer {
       );
     }
 
-    let result = parser.parse(raw);
+    return this.applyTransforms(parser.parse(raw));
+  }
+
+  /**
+   * Run the registered stages over a result an adapter has already produced.
+   *
+   * `parse()` calls this itself, and it is public because streaming cannot:
+   * there is no single Bundle to hand in, so the caller drives the pipeline a
+   * batch at a time and needs the same stages, in the same order, rather than
+   * a second implementation of them that can drift.
+   */
+  applyTransforms(result: ParseResult): ParseResult {
+    let current = result;
     for (const transform of this.transforms.values()) {
-      result = transform.transform(result);
+      current = transform.transform(current);
     }
-    return result;
+    return current;
   }
 
   private findParser(raw: unknown): FormatParser | undefined {

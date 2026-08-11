@@ -31,7 +31,7 @@ import type { Bundle, FhirResource } from 'fhir-normalize';
 
 ## Status
 
-`2.3.2`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform`, and the `Normalizer`
+`2.4.0`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform`, and the `Normalizer`
 methods — is stable under semver; anything breaking lands in a major.
 
 | Format | Status |
@@ -39,6 +39,7 @@ methods — is stable under semver; anything breaking lands in a major.
 | FHIR JSON (resource, Bundle, or array) | ✅ Supported |
 | FHIR XML | ✅ Supported (opt in via `fhir-normalize/xml`) |
 | NDJSON (Bulk Data `$export`) | ✅ Supported |
+| Streaming NDJSON, for exports past the 512 MB string ceiling | ✅ Supported (via `fhir-normalize/stream`) |
 | Cross-version STU3 / R5 → R4 | ⚠️ Partial (14 curated differences — [see coverage](#older-and-newer-releases-land-on-r4)) |
 | Simplified view (choice types resolved) | ✅ Supported (every section, 147 types) |
 | Flat rows out, for CSV and tabular loads | ✅ Supported (via `fhir-normalize/simplified`) |
@@ -70,7 +71,7 @@ Ships ESM + CJS with generated type declarations. No runtime configuration requi
 
 ### Import paths and bundle size
 
-The package has five entry points. The root re-exports the JSON-family parsers and the simplified
+The package has six entry points. The root re-exports the JSON-family parsers and the simplified
 and de-identify layers, so a single import still works; the subpaths let a bundler leave out what
 you do not use.
 
@@ -80,6 +81,7 @@ import { simplifyBundle, formatShape, toRows } from 'fhir-normalize/simplified';
 import { deIdentifyBundle } from 'fhir-normalize/deidentify';
 import { fhirXmlParser } from 'fhir-normalize/xml';                    // opt in
 import { validateBundle } from 'fhir-normalize/validate';              // opt in
+import { parseNdjsonStream } from 'fhir-normalize/stream';             // opt in
 ```
 
 `toRows` is the one export the root does not re-export: it serves the `/simplified` subpath only,
@@ -94,6 +96,7 @@ The 147 resource shape tables are the bulk of the library, and they only ship if
 | parsing + the simplified view | ~78 KB |
 | parsing + XML | ~100 KB (~33 KB gzipped) |
 | validation, on its own | ~80 KB (~15 KB gzipped) |
+| parsing + streaming | ~15 KB (~6 KB gzipped) |
 
 These are what a bundler actually emits, `fast-xml-parser` included — not library code with the
 dependency excluded.
@@ -167,30 +170,52 @@ resource lines among them, so a single JSON resource still goes to the FHIR JSON
 corrupt line near the top does not make the export undetectable. A line that is not a JSON resource
 is skipped and reported in `meta.warnings` rather than failing the export.
 
-For a file too large to hold in memory, work line by line. Every piece of the library has a
-per-resource entry point, so nothing needs the whole set at once:
+#### A file too large to be a string
+
+A JavaScript string cannot exceed **512 MB**. Past that a `$export` cannot be handed to `parse()` at
+all — not slowly, at all — and well below it the whole file, the lines and the decoded resources are
+live at once. `fhir-normalize/stream` reads the file a piece at a time and hands back a normal
+`ParseResult` every `batchSize` resources:
 
 ```ts
-import { createInterface } from 'node:readline';
-import { createDefaultNormalizer, SOURCE_FORMAT } from 'fhir-normalize';
-import { simplifyResource } from 'fhir-normalize/simplified';
-import { deIdentifyResource } from 'fhir-normalize/deidentify';
+import { createReadStream } from 'node:fs';
+import { createDefaultNormalizer } from 'fhir-normalize';
+import { parseNdjsonStream } from 'fhir-normalize/stream';
 
-const normalizer = createDefaultNormalizer();
+const source = createReadStream('Observation.ndjson');
+const options = { batchSize: 1000, normalizer: createDefaultNormalizer() };
 
-for await (const line of createInterface({ input: createReadStream(path) })) {
-  if (!line) continue;
-
-  const { bundle } = normalizer.parse(JSON.parse(line), SOURCE_FORMAT.FHIR_JSON);
-  const { resource } = deIdentifyResource(bundle.entry![0]!.resource!);
-
-  await sink.write(simplifyResource(resource));
+for await (const { bundle, meta } of parseNdjsonStream(source, options)) {
+  await db.insertMany(bundle.entry ?? []);
+  if (meta.warnings.length > 0) console.warn(meta.warnings);
 }
 ```
 
-Measured on a 62 MB export of 200,000 Observations: **467 MB of RSS** reading and parsing the whole
-file, against **93 MB** streaming it — and the streaming figure is flat, so it does not change when
-the file does.
+**Each batch is exactly what `parse()` returns**, so nothing downstream changes: `simplifyBundle`,
+`validateBundle` and `toRows` all take it as-is. Pass a `normalizer` and its stages — cross-version
+migration, de-identification, anything you registered — run over every batch. Leave it out and the
+batches carry what the file held.
+
+The source is any `AsyncIterable<string | Uint8Array>`, which a Node `Readable`, a web
+`ReadableStream` and an async generator all are, so this is not tied to Node. Chunk boundaries
+landing mid-line or mid-character are handled; a line that does not decode is skipped and reported
+with its line number counted from the start of the file.
+
+Measured on this machine, against two synthetic exports of Observations:
+
+| Export | `parse()` | `parseNdjsonStream()` |
+| --- | --- | --- |
+| 250 MB, 800,101 resources | 2.0 s, **1,271 MB** peak RSS | 1.4 s, **157 MB** |
+| 700 MB, 2,235,902 resources | `ERR_STRING_TOO_LONG` | 3.6 s, **192 MB** |
+
+Peak memory follows `batchSize`, not the size of the file, which is why the second row is barely
+larger than the first. A single line longer than `maxLineLength` (32 MB by default) is refused
+rather than buffered, because a file with no newlines in it would otherwise exhaust memory exactly
+the way `parse()` does.
+
+> [!NOTE]
+> **NDJSON only.** A single enormous JSON Bundle or XML document needs an incremental parser, which
+> is a different piece of work. For those, `parse()` and the 512 MB ceiling still apply.
 
 ### Older and newer releases land on R4
 
