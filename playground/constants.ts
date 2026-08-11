@@ -139,6 +139,15 @@ export const NO_FORMAT_BADGE = '—';
 
 export const COPY_RESET_MS = 1400;
 
+/**
+ * Where the playground lives, for `robots.txt` and `sitemap.xml`, which both
+ * need absolute URLs. Vercel sets the production host at build time; the
+ * fallback is the same value and only applies to a local build.
+ */
+export const SITE_URL = process.env.VERCEL_PROJECT_PRODUCTION_URL
+  ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+  : 'https://fhir-normalize-playground.vercel.app';
+
 /** Label for the de-identification toggle. */
 export const DEIDENTIFY_LABEL = 'de-identify';
 
