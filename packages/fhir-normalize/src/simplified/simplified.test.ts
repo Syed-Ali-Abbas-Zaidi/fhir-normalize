@@ -319,6 +319,23 @@ describe('normalizeByKind with a kind it does not know', () => {
       expect(normalizeByKind('x', kind as never).kind).toBe(VALUE_KIND.UNKNOWN);
     }
   });
+
+  /*
+   * The lookup reaches Object.prototype, where a nullish fallback does not
+   * save it: `constructor` is `Object`, which returns its argument unchanged,
+   * and `toString` is a function that answers '[object Undefined]'. Returning
+   * something plausible-looking and wrong is worse than the throw.
+   */
+  it('does not resolve an inherited member for a prototype key', () => {
+    for (const kind of ['constructor', 'toString', 'valueOf', 'hasOwnProperty', '__proto__']) {
+      expect(() => normalizeByKind('x', kind as never)).not.toThrow();
+      // Identical to any other unmapped kind, rather than a value of its own.
+      expect(normalizeByKind('x', kind as never)).toEqual(
+        normalizeByKind('x', 'not-a-kind' as never),
+      );
+      expect(normalizeByKind('x', kind as never).kind).toBe(VALUE_KIND.UNKNOWN);
+    }
+  });
 });
 
 describe('simplifyBundle', () => {

@@ -29,6 +29,11 @@ follows [semantic versioning](https://semver.org/spec/v2.0.0.html).
   `FieldKind`, four of whose members are not `ValueKind`s. It now returns the unknown value, which
   is what the rest of the library does instead of throwing.
 
+  The lookup is an own-property check rather than a plain one, so a key inherited from
+  `Object.prototype` cannot resolve to something that is not a reader: `constructor` would
+  otherwise return the input unchanged and `toString` would answer `'[object Undefined]'`, both
+  silently.
+
 ## [2.3.1] — 2026-08-09
 
 ### Fixed

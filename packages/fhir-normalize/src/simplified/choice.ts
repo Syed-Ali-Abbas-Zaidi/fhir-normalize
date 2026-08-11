@@ -45,9 +45,16 @@ const byKind: Record<ValueKind, (value: unknown) => NormalizedValue> = {
  * `FieldKind`, four of whose members are not `ValueKind`s — can still get here
  * with something unmapped. Falling back beats a `TypeError` from a library
  * whose contract everywhere else is to warn rather than throw.
+ *
+ * `Object.hasOwn` rather than a plain lookup, because a plain lookup reaches
+ * `Object.prototype` and a nullish check does not save it: `constructor`
+ * resolves to `Object`, which returns the input unchanged; `toString` resolves
+ * to a function returning '[object Undefined]'; `__proto__` and `valueOf`
+ * throw. Silently returning something wrong is worse than the exception this
+ * fallback exists to remove.
  */
 export const normalizeByKind = (value: unknown, kind: ValueKind): NormalizedValue =>
-  (byKind[kind] ?? toUnknown)(value);
+  (Object.hasOwn(byKind, kind) ? byKind[kind] : toUnknown)(value);
 
 export interface ResolvedChoice {
   value: NormalizedValue;

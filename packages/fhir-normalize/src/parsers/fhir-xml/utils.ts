@@ -81,19 +81,26 @@ export const decodeXml = (raw: unknown): UnknownRecord => {
 
   /*
    * `XMLValidator` is deprecated in favour of the separate `fast-xml-validator`
-   * package, and stays anyway. That package is ~1 MB with three transitive
-   * dependencies and validates against rules and schemas; this needs a
-   * well-formedness check, which is all `XMLValidator` does. Trading a method
-   * call for a megabyte of runtime dependency on a published healthcare library
-   * is the wrong direction.
+   * package, and stays anyway.
+   *
+   * What that swap costs, measured at fast-xml-validator@1.4.1: an unpacked
+   * 998 KB, and three dependencies of its own — detailed-xml-validator,
+   * path-expression-matcher, xml-naming — none of which this package would
+   * otherwise install. It validates documents against rules and schemas. What
+   * is needed here is a well-formedness check, which is all `XMLValidator`
+   * does, so the swap buys nothing and costs a megabyte in every consumer that
+   * parses XML.
    *
    * Dropping the check is not the alternative either: the parser is lenient by
    * default and would accept malformed XML, and the `validationOptions`
    * argument that would make it strict is itself deprecated.
    *
-   * Revisit when fast-xml-parser 6 removes it, not before. Static analysis
-   * flags this deliberately unsuppressed, so the day it stops working is
-   * visible rather than silent.
+   * There is no upstream removal date to wait for — fast-xml-parser has not
+   * published a major above 5 — so the checkpoint is one this repository
+   * already owns. The finding is left unsuppressed in Sonar, and a major bump
+   * of fast-xml-parser is a runtime dependency that auto-merge declines and a
+   * person reviews. Re-run this comparison then; do not act on the deprecation
+   * notice alone.
    */
   const validation = XMLValidator.validate(raw);
   if (validation !== true) {
