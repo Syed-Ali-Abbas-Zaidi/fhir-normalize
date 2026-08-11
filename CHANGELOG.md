@@ -27,18 +27,22 @@ follows [semantic versioning](https://semver.org/spec/v2.0.0.html).
   }
   ```
 
-  Measured against a synthetic export of 800,000 Observations:
+  Measured against two synthetic exports of Observations:
 
-  | | `parse()` | `parseNdjsonStream()` |
+  | Export | `parse()` | `parseNdjsonStream()` |
   | --- | --- | --- |
-  | 250 MB | 2.0 s, 1,271 MB peak RSS | 1.4 s, 157 MB |
-  | 700 MB | `ERR_STRING_TOO_LONG` | 3.6 s, 192 MB |
+  | 250 MB, 800,101 resources | 2.0 s, 1,271 MB peak RSS | 1.4 s, 157 MB |
+  | 700 MB, 2,235,902 resources | `ERR_STRING_TOO_LONG` | 3.6 s, 192 MB |
 
   Each batch is exactly what `parse()` returns, so `simplifyBundle`, `validateBundle` and `toRows`
   take it unchanged, and a `normalizer` passed in runs its registered stages over every batch. The
   source is any `AsyncIterable<string | Uint8Array>`, so a Node `Readable`, a web `ReadableStream`
   and an async generator all work. NDJSON only — a single enormous JSON or XML document needs an
   incremental parser, which this is not.
+
+  A line longer than `maxLineLength` (32 MB by default) is refused rather than decoded, whether it
+  arrives whole in one chunk or accumulates across many, because `JSON.parse` on an enormous line is
+  the spike the limit exists to prevent.
 
   Adds ~1.6 KB to a bundle that already parses, and nothing to one that does not import it.
 

@@ -21,6 +21,11 @@ const chunks = (...pieces: (string | Uint8Array)[]): NdjsonSource => ({
   },
 });
 
+/** What an async generator function actually returns, which is not a literal. */
+const fromGenerator = async function* (...pieces: (string | Uint8Array)[]): NdjsonSource {
+  for (const piece of pieces) yield piece;
+};
+
 /** One string, cut into fixed-size pieces, so boundaries land anywhere. */
 const sliced = (text: string, size: number): NdjsonSource => {
   const pieces: string[] = [];
@@ -80,8 +85,13 @@ describe('parseNdjsonStream — chunk boundaries', () => {
    * boundary landing anywhere at all must not change the answer.
    */
   it('reassembles lines split across chunks, at every possible offset', async () => {
+    // Written out rather than taken from an unsplit run of the same module: a
+    // parser that dropped or reordered a resource on both paths would agree
+    // with itself and the test would pass.
+    const expected = Array.from({ length: 12 }, (_, i) => `obs-${i}`);
     const text = Array.from({ length: 12 }, (_, i) => observation(i)).join('\n');
-    const expected = idsOf(await collect(chunks(text)));
+
+    expect(idsOf(await collect(chunks(text)))).toEqual(expected);
 
     for (let size = 1; size <= 64; size += 1) {
       expect(idsOf(await collect(sliced(text, size)))).toEqual(expected);
@@ -167,11 +177,79 @@ describe('parseNdjsonStream — guards', () => {
    * and exhausts memory exactly the way `parse()` does — which would defeat the
    * point of the module.
    */
-  it('refuses a line longer than maxLineLength instead of buffering it', async () => {
-    const enormous = `{"resourceType":"Observation","note":"${'x'.repeat(5000)}"`;
+  it('refuses an unterminated line that grows across many chunks', async () => {
+    // The accumulation case: no chunk is large, but together they never end.
+    const pieces = Array.from({ length: 200 }, () => 'x'.repeat(100));
 
-    await expect(collect(chunks(enormous), { maxLineLength: 1000 })).rejects.toThrow(
-      /exceeds the 1000 character limit/,
+    await expect(
+      collect(chunks(`{"resourceType":"Observation","note":"`, ...pieces), {
+        maxLineLength: 1000,
+      }),
+    ).rejects.toThrow(/Line 1 exceeds the 1000 character limit/);
+  });
+
+  it('refuses a complete oversized line that arrives inside one chunk', async () => {
+    /*
+     * Checked only after a chunk boundary, this line is already decoded by the
+     * time the limit is consulted — so the cap reads as enforced while
+     * JSON.parse has taken the hit it exists to prevent.
+     */
+    const oversized = `${JSON.stringify({ resourceType: 'Observation', id: 'big', note: 'x'.repeat(5000) })}\n`;
+
+    await expect(collect(chunks(oversized), { maxLineLength: 1000 })).rejects.toThrow(
+      /Line 1 exceeds the 1000 character limit/,
+    );
+  });
+
+  it('reports the line number of the offending line, not of the first', async () => {
+    const ok = `${observation(1)}\n${observation(2)}\n`;
+    const oversized = `${JSON.stringify({ resourceType: 'Observation', note: 'x'.repeat(5000) })}\n`;
+
+    await expect(collect(chunks(ok + oversized), { maxLineLength: 1000 })).rejects.toThrow(
+      /Line 3 exceeds/,
+    );
+  });
+});
+
+describe('parseNdjsonStream — the sources it documents', () => {
+  it('accepts an async generator object', async () => {
+    const batches = await collect(fromGenerator(`${observation(1)}\n${observation(2)}\n`));
+
+    expect(idsOf(batches)).toEqual(['obs-1', 'obs-2']);
+  });
+
+  it('accepts a Node Readable, which is a class instance rather than a literal', async () => {
+    const { Readable } = await import('node:stream');
+    const source = Readable.from([`${observation(1)}\n`, `${observation(2)}\n`]);
+
+    expect(idsOf(await collect(source))).toEqual(['obs-1', 'obs-2']);
+  });
+
+  it('accepts a Node Readable in binary mode, which yields Buffers', async () => {
+    const { Readable } = await import('node:stream');
+    const bytes = new TextEncoder().encode(`${observation(1)}\n${observation(2)}\n`);
+    const source = Readable.from([Buffer.from(bytes.slice(0, 30)), Buffer.from(bytes.slice(30))]);
+
+    expect(idsOf(await collect(source))).toEqual(['obs-1', 'obs-2']);
+  });
+
+  it('accepts a web ReadableStream', async () => {
+    const source = new ReadableStream<string>({
+      start(controller) {
+        controller.enqueue(`${observation(1)}\n`);
+        controller.enqueue(`${observation(2)}\n`);
+        controller.close();
+      },
+    }) as unknown as NdjsonSource;
+
+    expect(idsOf(await collect(source))).toEqual(['obs-1', 'obs-2']);
+  });
+
+  it('rejects an async generator function that was never called', async () => {
+    // A plausible mistake, and the one case worth failing loudly: the function
+    // is not iterable, only what it returns is.
+    await expect(collect(fromGenerator as unknown as NdjsonSource)).rejects.toThrow(
+      /async iterable/i,
     );
   });
 });

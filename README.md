@@ -201,12 +201,12 @@ The source is any `AsyncIterable<string | Uint8Array>`, which a Node `Readable`,
 landing mid-line or mid-character are handled; a line that does not decode is skipped and reported
 with its line number counted from the start of the file.
 
-Measured on this machine, against a synthetic export of 800,000 Observations:
+Measured on this machine, against two synthetic exports of Observations:
 
-| | `parse()` | `parseNdjsonStream()` |
+| Export | `parse()` | `parseNdjsonStream()` |
 | --- | --- | --- |
-| 250 MB | 2.0 s, **1,271 MB** peak RSS | 1.4 s, **157 MB** |
-| 700 MB | `ERR_STRING_TOO_LONG` | 3.6 s, **192 MB** — 2,235,902 resources |
+| 250 MB, 800,101 resources | 2.0 s, **1,271 MB** peak RSS | 1.4 s, **157 MB** |
+| 700 MB, 2,235,902 resources | `ERR_STRING_TOO_LONG` | 3.6 s, **192 MB** |
 
 Peak memory follows `batchSize`, not the size of the file, which is why the second row is barely
 larger than the first. A single line longer than `maxLineLength` (32 MB by default) is refused
@@ -217,7 +217,7 @@ the way `parse()` does.
 > **NDJSON only.** A single enormous JSON Bundle or XML document needs an incremental parser, which
 > is a different piece of work. For those, `parse()` and the 512 MB ceiling still apply.
 
-### Older and newer releases land on R4### Older and newer releases land on R4
+### Older and newer releases land on R4
 
 Known STU3 and R5 differences are migrated to R4 automatically:
 

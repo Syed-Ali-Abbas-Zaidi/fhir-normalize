@@ -147,6 +147,19 @@ export async function* parseNdjsonStream(
 
   const take = (line: string): void => {
     lineNumber += 1;
+
+    // Before `trim` and before `JSON.parse`, because the limit is about what
+    // this module is willing to hold and decode, not only about what it will
+    // accumulate. Checked only after a chunk boundary, a line that arrives
+    // complete and oversized inside one chunk would be parsed anyway, and
+    // `JSON.parse` on it is the memory spike the limit exists to prevent.
+    if (line.length > maxLineLength) {
+      throw new ParseError(
+        SOURCE_FORMAT.NDJSON,
+        STREAM_ERROR.LINE_TOO_LONG(maxLineLength, lineNumber),
+      );
+    }
+
     const trimmed = line.trim();
     if (trimmed.length === 0) return;
 
@@ -180,6 +193,8 @@ export async function* parseNdjsonStream(
 
     carry = carry.slice(from);
 
+    // The other half of the same limit: a line still being assembled has no
+    // newline yet, so `take` cannot have rejected it.
     if (carry.length > maxLineLength) {
       throw new ParseError(
         SOURCE_FORMAT.NDJSON,
