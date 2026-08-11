@@ -5,6 +5,47 @@ All notable changes to `fhir-normalize`.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.0] — 2026-08-11
+
+### Added
+
+- **`fhir-normalize/stream` — NDJSON input that is not limited by the size of a string.** A
+  JavaScript string cannot exceed 512 MB, so a Bulk Data `$export` past that could not be given to
+  `parse()` at all, and well below it the file, its lines and the decoded resources were all live
+  at once. `parseNdjsonStream` reads the source a chunk at a time and yields a normal `ParseResult`
+  every `batchSize` resources:
+
+  ```ts
+  import { createReadStream } from 'node:fs';
+  import { createDefaultNormalizer } from 'fhir-normalize';
+  import { parseNdjsonStream } from 'fhir-normalize/stream';
+
+  const options = { batchSize: 1000, normalizer: createDefaultNormalizer() };
+
+  for await (const { bundle, meta } of parseNdjsonStream(createReadStream(path), options)) {
+    await db.insertMany(bundle.entry ?? []);
+  }
+  ```
+
+  Measured against a synthetic export of 800,000 Observations:
+
+  | | `parse()` | `parseNdjsonStream()` |
+  | --- | --- | --- |
+  | 250 MB | 2.0 s, 1,271 MB peak RSS | 1.4 s, 157 MB |
+  | 700 MB | `ERR_STRING_TOO_LONG` | 3.6 s, 192 MB |
+
+  Each batch is exactly what `parse()` returns, so `simplifyBundle`, `validateBundle` and `toRows`
+  take it unchanged, and a `normalizer` passed in runs its registered stages over every batch. The
+  source is any `AsyncIterable<string | Uint8Array>`, so a Node `Readable`, a web `ReadableStream`
+  and an async generator all work. NDJSON only — a single enormous JSON or XML document needs an
+  incremental parser, which this is not.
+
+  Adds ~1.6 KB to a bundle that already parses, and nothing to one that does not import it.
+
+- **`Normalizer.applyTransforms`.** Runs the registered post-parse stages over a result an adapter
+  has already produced. `parse()` uses it internally; it is public so streaming drives the same
+  pipeline rather than a second copy of it that could drift.
+
 ## [2.3.2] — 2026-08-11
 
 ### Fixed

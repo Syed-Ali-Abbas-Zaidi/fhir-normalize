@@ -157,6 +157,8 @@ jobs:
             import { simplifyResource } from 'fhir-normalize/simplified';
             import { deIdentifyResource } from 'fhir-normalize/deidentify';
             import { fhirXmlParser } from 'fhir-normalize/xml';
+            import { validateBundle } from 'fhir-normalize/validate';
+            import { parseNdjsonStream } from 'fhir-normalize/stream';
 
             const plain = createDefaultNormalizer();
             if (plain.detectFormat('<Patient/>') !== null) throw new Error('xml should not be registered by default');
@@ -168,6 +170,16 @@ jobs:
             const resource = bundle.entry[0].resource;
             if (simplifyResource(resource).resourceType !== 'Patient') throw new Error('simplify failed');
             if (!deIdentifyResource(resource).resource) throw new Error('deidentify failed');
+            if (validateBundle(bundle).length !== 0) throw new Error('validate failed');
+
+            // Streaming is the only async entry point, so resolving it is not
+            // enough — it has to actually produce a batch.
+            const lines = '{\"resourceType\":\"Patient\",\"id\":\"a\"}\n{\"resourceType\":\"Patient\",\"id\":\"b\"}\n';
+            async function* chunks() { yield lines; }
+            let streamed = 0;
+            for await (const batch of parseNdjsonStream(chunks())) streamed += batch.bundle.entry.length;
+            if (streamed !== 2) throw new Error('stream failed: ' + streamed);
+
             console.log('subpaths ok on node ' + process.versions.node);
           "
 
