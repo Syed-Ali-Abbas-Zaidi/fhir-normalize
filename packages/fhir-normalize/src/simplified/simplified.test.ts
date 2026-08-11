@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createCollectionBundle } from '../core';
-import { resolveChoice } from './choice';
-import { VALUE_KIND } from './constants';
+import { normalizeByKind, resolveChoice } from './choice';
+import { EMPTY_TEXT, VALUE_KIND } from './constants';
 import { simplifyBundle, simplifyResource } from './utils';
 
 const observation = (extra: object) => ({
@@ -265,6 +265,59 @@ describe('simplifyResource — nothing disappears quietly', () => {
 
   it('handles a resource with no resourceType without throwing', () => {
     expect(simplifyResource({ name: 'Ali' }).resourceType).toBe('Unknown');
+  });
+});
+
+describe('a string element that did not arrive as a string', () => {
+  /*
+   * The library's premise is surviving malformed input, so the failure mode
+   * that matters is not throwing — it is rendering something meaningless as if
+   * it were data. `String({})` is '[object Object]', which would reach a table
+   * cell looking like a value.
+   */
+  const textOf = (fields: object, key: string) =>
+    (fields as Record<string, { kind: string; text: string; value: unknown }>)[key] ?? {
+      kind: '',
+      text: '',
+      value: undefined,
+    };
+
+  it('renders an object as EMPTY_TEXT rather than [object Object]', () => {
+    const { fields } = simplifyResource(observation({ valueString: { nested: 'not a string' } }));
+
+    expect(textOf(fields, 'value').text).not.toContain('object Object');
+    expect(textOf(fields, 'value')).toEqual({
+      kind: VALUE_KIND.STRING,
+      text: EMPTY_TEXT,
+      value: '',
+    });
+  });
+
+  it('renders an array the same way', () => {
+    const { fields } = simplifyResource(observation({ valueString: ['a', 'b'] }));
+
+    expect(textOf(fields, 'value').text).toBe(EMPTY_TEXT);
+  });
+
+  it('still coerces a number or a boolean, which do have a readable form', () => {
+    const number = simplifyResource(observation({ valueString: 42 }));
+    const boolean = simplifyResource(observation({ valueString: false }));
+
+    expect(textOf(number.fields, 'value').text).toBe('42');
+    expect(textOf(boolean.fields, 'value').text).toBe('false');
+  });
+});
+
+describe('normalizeByKind with a kind it does not know', () => {
+  /*
+   * Unreachable with types, reachable from JavaScript and from anything
+   * bridging FieldKind — four of whose members are not ValueKinds.
+   */
+  it('returns the unknown value rather than throwing', () => {
+    for (const kind of ['choice', 'annotation', 'primitive', 'group']) {
+      expect(() => normalizeByKind('x', kind as never)).not.toThrow();
+      expect(normalizeByKind('x', kind as never).kind).toBe(VALUE_KIND.UNKNOWN);
+    }
   });
 });
 

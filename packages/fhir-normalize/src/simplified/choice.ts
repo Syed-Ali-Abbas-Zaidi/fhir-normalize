@@ -39,8 +39,15 @@ const byKind: Record<ValueKind, (value: unknown) => NormalizedValue> = {
   [VALUE_KIND.UNKNOWN]: toUnknown,
 };
 
+/**
+ * The `ValueKind` parameter keeps a caller with types from asking for a kind
+ * that has no reader, but a JavaScript caller — or one bridging from
+ * `FieldKind`, four of whose members are not `ValueKind`s — can still get here
+ * with something unmapped. Falling back beats a `TypeError` from a library
+ * whose contract everywhere else is to warn rather than throw.
+ */
 export const normalizeByKind = (value: unknown, kind: ValueKind): NormalizedValue =>
-  byKind[kind](value);
+  (byKind[kind] ?? toUnknown)(value);
 
 export interface ResolvedChoice {
   value: NormalizedValue;

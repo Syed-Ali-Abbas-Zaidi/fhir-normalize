@@ -8,7 +8,7 @@
   line-height: 1.65;
   color: var(--console-soft);
   white-space: pre-wrap;
-  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .key {
@@ -93,7 +93,7 @@
   font-family: var(--font-mono);
   font-size: 12px;
   color: var(--console-ink-strong);
-  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 /* Warnings and errors -------------------------------------------------- */

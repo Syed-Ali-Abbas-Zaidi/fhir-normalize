@@ -231,8 +231,18 @@ export const toAnnotation = (value: unknown): NormalizedString => {
   return { kind: VALUE_KIND.STRING, text: text ?? EMPTY_TEXT, value: text ?? '' };
 };
 
+/**
+ * `String(value)` is what a number or a boolean arriving where R4 declares a
+ * string needs, and is wrong for everything else: an object renders as the
+ * literal `[object Object]`, which is worse than admitting there is nothing
+ * readable here. Coercion is therefore limited to the primitives that have a
+ * meaningful string form, and anything else falls through to `EMPTY_TEXT` the
+ * way an absent value does.
+ */
+const PRIMITIVE_TEXT_TYPES = new Set(['number', 'boolean', 'bigint']);
+
 export const toString_ = (value: unknown): NormalizedString => {
-  const text = str(value) ?? (value === undefined || value === null ? null : String(value));
+  const text = str(value) ?? (PRIMITIVE_TEXT_TYPES.has(typeof value) ? String(value) : null);
   return { kind: VALUE_KIND.STRING, text: text ?? EMPTY_TEXT, value: text ?? '' };
 };
 

@@ -79,6 +79,22 @@ export const decodeXml = (raw: unknown): UnknownRecord => {
     throw new ParseError(SOURCE_FORMAT.FHIR_XML, FHIR_XML_ERROR.NOT_A_STRING);
   }
 
+  /*
+   * `XMLValidator` is deprecated in favour of the separate `fast-xml-validator`
+   * package, and stays anyway. That package is ~1 MB with three transitive
+   * dependencies and validates against rules and schemas; this needs a
+   * well-formedness check, which is all `XMLValidator` does. Trading a method
+   * call for a megabyte of runtime dependency on a published healthcare library
+   * is the wrong direction.
+   *
+   * Dropping the check is not the alternative either: the parser is lenient by
+   * default and would accept malformed XML, and the `validationOptions`
+   * argument that would make it strict is itself deprecated.
+   *
+   * Revisit when fast-xml-parser 6 removes it, not before. Static analysis
+   * flags this deliberately unsuppressed, so the day it stops working is
+   * visible rather than silent.
+   */
   const validation = XMLValidator.validate(raw);
   if (validation !== true) {
     throw new ParseError(SOURCE_FORMAT.FHIR_XML, FHIR_XML_ERROR.MALFORMED(validation.err.msg));
