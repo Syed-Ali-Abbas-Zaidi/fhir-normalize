@@ -111,6 +111,13 @@ the exports only it consumes would read as dead. Everything else is knip's own d
 the point: an ignore list is how this kind of tool stops finding anything. If knip flags something,
 the first assumption should be that it is right.
 
+**A finding Sonar gets wrong is turned off in `sonar-project.properties`, with the reason, and
+never in the web UI.** The bar is that following the rule would make the code worse — not that the
+rule is noisy. Sorting with `localeCompare` would make output depend on the machine's locale;
+`http://loinc.org` is a FHIR identifier and not an address; the FNV-1a hash is defined over code
+units and every stored pseudonym depends on it. A genuine style disagreement stays open and visible
+instead, which is why some findings are still listed.
+
 Coverage reaches Sonar as lcov. `vitest` writes paths relative to the package it ran in and Sonar
 resolves them against the repository root, so the workflow rewrites them in between — without that
 step coverage reads as zero and looks like a project with no tests.

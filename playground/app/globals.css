@@ -6,17 +6,29 @@
   box-sizing: border-box;
 }
 
-html,
-body {
+html {
   margin: 0;
   padding: 0;
 }
 
+/* One `body` rule, so the reset and the theming cannot drift apart. */
 body {
+  margin: 0;
+  padding: 0;
   background: var(--bg);
   color: var(--ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+
+  /*
+   * Theme switching. The page backdrop leads; the panels follow via the same
+   * `--theme-shift` duration, declared once here so every surface repaints as
+   * one movement instead of a strobe. The reduced-motion block below
+   * neutralizes it.
+   */
+  transition:
+    background-color var(--theme-shift),
+    color var(--theme-shift);
 }
 
 button {
@@ -46,17 +58,6 @@ button {
   outline: 2px solid var(--brand);
   outline-offset: 2px;
   border-radius: 4px;
-}
-
-/*
- * Theme switching. The page backdrop leads; the panels follow via the same
- * `--theme-shift` duration, declared once here so every surface repaints as one
- * movement instead of a strobe. The reduced-motion block below neutralizes it.
- */
-body {
-  transition:
-    background-color var(--theme-shift),
-    color var(--theme-shift);
 }
 
 /*

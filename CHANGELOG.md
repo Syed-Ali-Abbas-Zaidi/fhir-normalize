@@ -5,6 +5,35 @@ All notable changes to `fhir-normalize`.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.2] — 2026-08-11
+
+### Fixed
+
+- **A string element that arrived as an object rendered as the literal `[object Object]`.** The
+  simplified view coerces a value to text when R4 declares a string and something else turns up,
+  which is right for a number or a boolean and wrong for everything else:
+
+  ```text
+  { resourceType: 'Observation', status: 'final', valueString: { nested: 'x' } }
+  before -> { kind: 'string', text: '[object Object]', value: '[object Object]' }
+  after  -> { kind: 'string', text: '—',               value: '' }
+  ```
+
+  Malformed input is the case this library exists for, and rendering nonsense as though it were
+  data is a worse failure than admitting there is nothing readable. Coercion is now limited to the
+  primitives that have a meaningful string form; anything else reads as absent, the way it already
+  did for `null`.
+
+- **`normalizeByKind` threw a `TypeError` for a kind it has no reader for.** Unreachable with types
+  — the parameter is a `ValueKind` — but reachable from JavaScript, and from anything bridging
+  `FieldKind`, four of whose members are not `ValueKind`s. It now returns the unknown value, which
+  is what the rest of the library does instead of throwing.
+
+  The lookup is an own-property check rather than a plain one, so a key inherited from
+  `Object.prototype` cannot resolve to something that is not a reader: `constructor` would
+  otherwise return the input unchanged and `toString` would answer `'[object Undefined]'`, both
+  silently.
+
 ## [2.3.1] — 2026-08-09
 
 ### Fixed
