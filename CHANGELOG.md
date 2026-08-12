@@ -36,12 +36,38 @@ follows [semantic versioning](https://semver.org/spec/v2.0.0.html).
   and `valueAttachment` are the exception: a choice element carrying a type R4 forbids makes the
   resource wrong rather than merely extended, so those are dropped and reported.
 
+- **Every migration is now applied to every resource the definitions say it fits**, rather than to
+  the resource types someone thought to list. The table went from 58 rows across 15 resource types
+  to **99 across 34**, without a single new converter: `reason` fits eighteen resources and was
+  wired to five, STU3 `context` fits seventeen and was wired to six.
+
+  On bundles covering the newly wired resources, `validateBundle` went from **10 elements R4 does
+  not define to none**, for both STU3 and R5 input.
+
+  A conformance check now holds this: adding a row for one resource fails the suite until every
+  other resource the pattern fits is covered, or listed as a deliberate exception with the reason it
+  cannot be verified. Three exceptions are recorded, all because the digests carry element types and
+  cardinality and never value-set bindings — `notDone` and `notGiven` write a `status`, and R4 binds
+  that to a different value set per resource.
+
+- **`spec/stu3-elements.json`, and two more conformance checks.** The STU3 and R5 digests held
+  payload keys only, which cannot say whether a rename changes an element's cardinality. Both
+  releases now have full element digests, and the suite checks that a plain rename joins elements of
+  the same cardinality — which immediately caught `ImagingStudy.reason`, `0..1` in STU3 and a list in
+  R4, being renamed without being wrapped. A rewrite now declares the fields it writes, so those can
+  be checked against R4 too.
+
 - **`spec/r5-elements.json`.** The R5 digest held payload keys only, which cannot say whether
   renaming an R5 backbone onto an R4 one carries children R4 does not define. It can now:
   `Encounter.admission` → `hospitalization` was confirmed safe because R5's children are a subset
   of R4's, rather than assumed to be.
 
 ### Fixed
+
+- **Three rows were competing for a field two releases both use.** `Encounter.reason`,
+  `Appointment.reason` and `ImagingStudy.reason` exist in STU3 as a `CodeableConcept` list and in R5
+  as something else, and the stage applies rows in order, so the first claimed the field for both
+  releases. Each R5 row is now guarded on the shape it recognises.
 
 - **Two rows were competing for `Encounter.reason`.** STU3 has a `CodeableConcept` list there and
   R5 a backbone, and the stage applies rows in order, so the first claimed the field for both

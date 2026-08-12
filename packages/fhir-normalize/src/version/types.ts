@@ -33,6 +33,18 @@ export interface FieldMigration {
   readonly convert?: (value: unknown) => unknown;
   /** For a source field that maps onto more than one R4 field. */
   readonly rewrite?: (value: unknown) => UnknownRecord;
+  /**
+   * The R4 fields a `rewrite` can write, for rows where `target` cannot say it.
+   *
+   * A rewrite decides its own output keys, so nothing else can tell what it
+   * writes — which left the conformance suite unable to check that those fields
+   * exist in R4, or that a resource sharing this row's `source` also has
+   * somewhere to put the result. `EpisodeOfCare.reason` is why it matters: R5
+   * has the field and R4 has neither `reasonCode` nor `reasonReference`, so the
+   * row that fits five other resources would have written elements R4 does not
+   * define.
+   */
+  readonly writes?: readonly string[];
   /** Appended to the warning — used to spell out what was lost. */
   readonly reason?: string;
 }

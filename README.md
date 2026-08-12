@@ -94,16 +94,17 @@ The 147 resource shape tables are the bulk of the library, and they only ship if
 
 | What you import | Bundled |
 | --- | --- |
-| parsing only | **~18 KB** (~7 KB gzipped) |
-| parsing + the simplified view | ~83 KB (~23 KB gzipped) |
-| parsing + XML | ~105 KB (~34 KB gzipped) |
+| parsing only | **~19 KB** (~7 KB gzipped) |
+| parsing + the simplified view | ~84 KB (~24 KB gzipped) |
+| parsing + XML | ~106 KB (~35 KB gzipped) |
 | validation, on its own | ~80 KB (~15 KB gzipped) |
-| parsing + streaming | ~20 KB (~8 KB gzipped) |
-| parsing + HL7 v2 | ~28 KB (~11 KB gzipped) |
+| parsing + streaming | ~21 KB (~8 KB gzipped) |
+| parsing + HL7 v2 | ~29 KB (~11 KB gzipped) |
 
 Parsing-only was ~13 KB in 2.4.0. `createDefaultNormalizer` registers the cross-version stage, so
-every widening of the migration table shows up here: ~16 KB in 2.5.0 when STU3 was covered, ~18 KB
-in 2.7.0 when R5 was. Gzipped it has barely moved, because the table is repetitive.
+every widening of the migration table shows up here: ~16 KB in 2.5.0 with STU3, ~19 KB in 2.7.0 with
+R5 and the rest. Gzipped it has barely moved — 5.5 KB to 7 KB across 85 added rows — because the
+table is repetitive and compresses well.
 
 These are what a bundler actually emits, `fast-xml-parser` included — not library code with the
 dependency excluded.
@@ -291,22 +292,36 @@ marker-driven, so a marker that also exists in R4 would rewrite valid R4 data. `
 
 **The table is curated, and the raw totals overstate the gap.** Measured against the definitions:
 
-| | Elements differing from R4 | Handled | Passed through unchanged |
-| --- | --- | --- | --- |
-| STU3 → R4 | 193 | 35 | 158 |
-| R5 → R4 | 601 | 21 | 580 |
+| | Differing from R4 | Migrated | Fits a pattern, no row | Not migrated |
+| --- | --- | --- | --- | --- |
+| STU3 → R4 | 193 | 59 | 0 | 134 |
+| R5 → R4 | 601 | 38 | 0 | 563 |
 
-The remainder is not 738 missing migrations. Most of the R5 column is elements R5 *invented* —
-`ObservationDefinition` alone gained 31 — which have no R4 counterpart to migrate to and never
-will. The tractable set is much smaller, and the table is aimed at it: across the sixteen resource
-types that dominate a real export, STU3 has 34 elements that differ from R4 and all 34 are handled,
-and R5 has 78 of which 21 are.
+The third column is the one that matters, and it is zero by test. Every migration in this table is
+applied to **every** resource the definitions say it fits, not to the resource types someone thought
+to list. `reason` fits eighteen resources, `context` seventeen; both were once wired to five or six.
+A row added for one resource now fails the suite until the others are covered or listed as
+deliberate exceptions with a reason.
 
-Three further rows are not counted above, because their fields exist in R4 as well and fire only
-behind an `applies` guard: `MedicationRequest.requester`, `Encounter.reason` and `Encounter.class`.
-The table has 58 rows in total, across 15 resource types — Observation, Condition,
-AllergyIntolerance, Procedure, Immunization, DiagnosticReport, MedicationStatement, Location,
-Coverage, Communication, CarePlan, MedicationRequest, Patient, Encounter and DocumentReference.
+Across the sixteen resource types that dominate a real export, every STU3 element that differs from
+R4 is migrated — 34 of 34.
+
+So the last column is not a backlog. Of the 563 R5 elements in it:
+
+- it is spread across **98 resource types**, the largest being `ObservationDefinition` at 6%;
+- **53% sits on definitional and conformance resources** — `ObservationDefinition`,
+  `SpecimenDefinition`, `NamingSystem`, `ConceptMap`, `ValueSet`, `SearchParameter` — which a
+  clinical data pipeline never receives;
+- much of the rest is R5 concepts with no R4 counterpart in any form: `virtualService`,
+  `subjectStatus`, `conformsTo`, `biologicalSourceEvent`.
+
+Those pass through untouched, and [`fhir-normalize/validate`](#checking-that-a-payload-really-is-r4)
+names every one with its path, so nothing is lost silently.
+
+Five further rows are not counted above, because their fields exist in R4 as well and fire only
+behind an `applies` guard: `MedicationRequest.requester`, `Encounter.reason`, `Encounter.class`,
+`Appointment.reason` and `ImagingStudy.reason`. The table has 99 rows in total, across 34 resource
+types.
 
 Every figure in this section is asserted by a test against `VERSION_MIGRATION` and the spec
 digests, so it cannot drift from the table the way a hand-written count would.

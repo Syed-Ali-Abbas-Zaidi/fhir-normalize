@@ -520,6 +520,117 @@ describe('R5 -> R4, the widened rows', () => {
   });
 });
 
+describe('a pattern applies to every resource that fits it', () => {
+  /*
+   * These were wired to a curated handful of resource types and fit far more.
+   * One test per pattern on a resource that had no row before, rather than
+   * thirty near-identical ones — the conformance suite is what proves the set
+   * is complete.
+   */
+  it('splits the R5 reason list on resources beyond the original five', () => {
+    for (const resourceType of ['ServiceRequest', 'Communication', 'ImagingStudy', 'CareTeam']) {
+      const { resource } = migrate({
+        resourceType,
+        id: 'x',
+        reason: [{ concept: { text: 'why' } }, { reference: { reference: 'Condition/c1' } }],
+      });
+
+      expect(resource.reasonCode).toEqual([{ text: 'why' }]);
+      expect(resource.reasonReference).toEqual([{ reference: 'Condition/c1' }]);
+    }
+  });
+
+  it('splits medication[x] on the administration and dispense resources too', () => {
+    for (const resourceType of ['MedicationAdministration', 'MedicationDispense']) {
+      const { resource } = migrate({
+        resourceType,
+        id: 'x',
+        medication: { concept: { text: 'aspirin' } },
+      });
+
+      expect(resource.medicationCodeableConcept).toEqual({ text: 'aspirin' });
+    }
+  });
+
+  it('renames R5 encounter to context wherever R4 kept context', () => {
+    for (const resourceType of ['ChargeItem', 'MedicationAdministration', 'MedicationDispense']) {
+      const { resource } = migrate({
+        resourceType,
+        id: 'x',
+        encounter: { reference: 'Encounter/e1' },
+      });
+
+      expect(resource.context).toEqual({ reference: 'Encounter/e1' });
+    }
+  });
+
+  it('renames STU3 context to encounter beyond the original six', () => {
+    for (const resourceType of ['Task', 'ImagingStudy', 'QuestionnaireResponse', 'Media']) {
+      const { resource } = migrate({
+        resourceType,
+        id: 'x',
+        context: { reference: 'Encounter/e1' },
+      });
+
+      expect(resource.encounter).toEqual({ reference: 'Encounter/e1' });
+    }
+  });
+
+  it('reports STU3 definition on every resource that carried it', () => {
+    for (const resourceType of ['ChargeItem', 'DeviceRequest', 'MedicationAdministration']) {
+      const { resource, warnings } = migrate({
+        resourceType,
+        id: 'x',
+        definition: [{ reference: 'ActivityDefinition/a1' }],
+      });
+
+      expect(resource).not.toHaveProperty('definition');
+      expect(warnings.join()).toContain('definition');
+    }
+  });
+
+  /*
+   * Three resources carry `reason` in both releases under different shapes, so
+   * each row has to recognise its own. Unguarded, the R5 rewrite would split a
+   * STU3 CodeableConcept list into nothing at all.
+   */
+  it('tells the STU3 and R5 reason shapes apart on every resource that has both', () => {
+    for (const resourceType of ['Appointment', 'ImagingStudy']) {
+      const fromR5 = migrate({
+        resourceType,
+        id: 'x',
+        reason: [{ concept: { text: 'R5' } }],
+      });
+      const fromStu3 = migrate({ resourceType, id: 'x', reason: [{ text: 'STU3' }] });
+
+      expect(fromR5.resource.reasonCode).toEqual([{ text: 'R5' }]);
+      expect(fromStu3.resource.reasonCode).toEqual([{ text: 'STU3' }]);
+    }
+  });
+
+  it('wraps a STU3 ImagingStudy reason, which was 0..1 where R4 takes a list', () => {
+    const { resource } = migrate({
+      resourceType: 'ImagingStudy',
+      id: 'x',
+      reason: { text: 'one concept, not a list' },
+    });
+
+    expect(resource.reasonCode).toEqual([{ text: 'one concept, not a list' }]);
+  });
+
+  it('leaves Task.reason as one value, because R4 Task keeps it 0..1', () => {
+    // Every other resource makes reasonCode a list. Task does not, which is why
+    // the R5 rewrite is excluded there and this plain rename is right.
+    const { resource } = migrate({
+      resourceType: 'Task',
+      id: 'x',
+      reason: { text: 'single' },
+    });
+
+    expect(resource.reasonCode).toEqual({ text: 'single' });
+  });
+});
+
 describe('R4 input is left alone', () => {
   it.each([
     ['an Encounter with a Coding class', r4Encounter],
