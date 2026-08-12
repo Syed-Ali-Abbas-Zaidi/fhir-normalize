@@ -232,6 +232,11 @@ export const VERSION_MIGRATION: MigrationTable = {
       target: 'basedOn',
     },
     {
+      from: FHIR_VERSION.STU3,
+      source: 'reason',
+      target: 'reasonCode',
+    },
+    {
       from: FHIR_VERSION.R5,
       source: 'actualPeriod',
       target: 'period',

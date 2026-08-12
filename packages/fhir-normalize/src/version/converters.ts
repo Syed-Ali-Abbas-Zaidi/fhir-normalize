@@ -121,16 +121,22 @@ export const toPerformerList = (value: unknown): Converted => {
 };
 
 /**
+ * R4 `positiveInt` is a 32-bit signed integer above zero, so it stops here and
+ * not at `Number.MAX_SAFE_INTEGER`.
+ */
+const POSITIVE_INT_MAX = 2_147_483_647;
+
+/**
  * STU3 `Coverage.sequence` is a string; R4 `order` is a `positiveInt`.
  *
- * Anything that is not a whole number above zero yields nothing — writing
- * `"1a"` or `0` into a positiveInt would produce a Bundle that claims to be R4
- * and is not.
+ * Anything outside 1 to {@link POSITIVE_INT_MAX} yields nothing — writing
+ * `"1a"`, `0` or `2147483648` into a positiveInt would produce a Bundle that
+ * claims to be R4 and is not.
  */
 export const toPositiveInt = (value: unknown): Converted => {
   const parsed = typeof value === 'number' ? value : Number(String(value).trim());
 
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
+  return Number.isInteger(parsed) && parsed > 0 && parsed <= POSITIVE_INT_MAX ? parsed : undefined;
 };
 
 /**

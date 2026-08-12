@@ -9,7 +9,7 @@ follows [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- **Cross-version migration widened from 14 rows to 38**, aimed at the resource types that actually
+- **Cross-version migration widened from 14 rows to 39**, aimed at the resource types that actually
   appear in a real export rather than at the raw element count. On a realistic STU3 bundle,
   `validateBundle` went from reporting **14 non-R4 elements to none**:
 
@@ -20,10 +20,11 @@ follows [semantic versioning](https://semver.org/spec/v2.0.0.html).
   | `Immunization` | `date` → `occurrenceDateTime`, `practitioner` → `performer`, `notGiven` → status, `explanation` split into `reasonCode` and `statusReason`, `vaccinationProtocol` → `protocolApplied` |
   | `DiagnosticReport` | `context` → `encounter`, `codedDiagnosis` → `conclusionCode`, `image` → `media` |
   | `Coverage` | `sequence` → `order` as a `positiveInt`, `grouping` reported |
+  | `Encounter` | `reason` → `reasonCode` |
   | `Observation` | `valueAttachment` reported |
   | `MedicationStatement` | `taken` and `reasonNotTaken` reported |
   | `DocumentReference` | `created` reported |
-  | `CarePlan`, `MedicationRequest`, `Procedure` | `definition` reported |
+  | `CarePlan`, `MedicationRequest` | `definition` reported |
 
   `notDone` and `notGiven` are the rows that matter most. STU3 recorded "this did not happen" in a
   boolean beside the status; R4 removed both and added `not-done` to the status value set. Dropping
@@ -36,6 +37,9 @@ follows [semantic versioning](https://semver.org/spec/v2.0.0.html).
   expressed conformantly — a `Coverage.sequence` of `"1a"` where R4 wants a `positiveInt`, a
   performer with no actor where R4 requires one — the element is dropped and the warning says so
   rather than writing something invalid.
+
+  The coverage figures the README quotes are now asserted against `VERSION_MIGRATION` and the spec
+  digests by a test, rather than counted by hand. They had been miscounted twice.
 
 ### Fixed
 

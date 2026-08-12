@@ -249,10 +249,27 @@ describe('STU3 -> R4, the widened rows', () => {
 
   it('types Coverage.sequence as the positiveInt R4 wants', () => {
     expect(migrate({ resourceType: 'Coverage', id: 'c1', sequence: '2' }).resource.order).toBe(2);
+    expect(
+      migrate({ resourceType: 'Coverage', id: 'c3', sequence: '2147483647' }).resource.order,
+    ).toBe(2_147_483_647);
+  });
+
+  it('renames Encounter.reason to reasonCode', () => {
+    const { resource } = migrate({
+      resourceType: 'Encounter',
+      id: 'e1',
+      status: 'finished',
+      reason: [{ text: 'chest pain' }],
+    });
+
+    expect(resource.reasonCode).toEqual([{ text: 'chest pain' }]);
+    expect(resource).not.toHaveProperty('reason');
   });
 
   it('refuses a Coverage.sequence that is not a positiveInt', () => {
-    for (const sequence of ['0', '1a', '', '1.5']) {
+    // R4 positiveInt is a 32-bit signed integer above zero, so the ceiling is
+    // 2,147,483,647 and not Number.MAX_SAFE_INTEGER.
+    for (const sequence of ['0', '1a', '', '1.5', '-3', '2147483648']) {
       const { resource, warnings } = migrate({ resourceType: 'Coverage', id: 'c2', sequence });
 
       expect(resource).not.toHaveProperty('order');

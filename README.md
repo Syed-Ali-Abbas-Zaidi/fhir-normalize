@@ -40,7 +40,7 @@ methods — is stable under semver; anything breaking lands in a major.
 | FHIR XML | ✅ Supported (opt in via `fhir-normalize/xml`) |
 | NDJSON (Bulk Data `$export`) | ✅ Supported |
 | Streaming NDJSON, for exports past the 512 MB string ceiling | ✅ Supported (via `fhir-normalize/stream`) |
-| Cross-version STU3 / R5 → R4 | ⚠️ Partial (38 curated differences — [see coverage](#older-and-newer-releases-land-on-r4)) |
+| Cross-version STU3 / R5 → R4 | ⚠️ Partial (39 curated differences — [see coverage](#older-and-newer-releases-land-on-r4)) |
 | Simplified view (choice types resolved) | ✅ Supported (every section, 147 types) |
 | Flat rows out, for CSV and tabular loads | ✅ Supported (via `fhir-normalize/simplified`) |
 | De-identification | ✅ Supported (structural; see the limits below) |
@@ -246,17 +246,21 @@ marker-driven, so a marker that also exists in R4 would rewrite valid R4 data. `
 | | Elements differing from R4 | Handled | Passed through unchanged |
 | --- | --- | --- | --- |
 | STU3 → R4 | 193 | 35 | 158 |
-| R5 → R4 | 601 | 3 | 598 |
+| R5 → R4 | 601 | 2 | 599 |
 
-The remainder is not 756 missing migrations. Most of the R5 column is elements R5 *invented* —
+The remainder is not 757 missing migrations. Most of the R5 column is elements R5 *invented* —
 `ObservationDefinition` alone gained 31 — which have no R4 counterpart to migrate to and never
-will. The tractable set is much smaller, and the table is aimed at it: filtered to the sixteen
-resource types that dominate a real export, STU3 has 34 differing elements, of which **all but one
-are now handled**.
+will. The tractable set is much smaller, and the table is aimed at it: across the sixteen resource
+types that dominate a real export, STU3 has 34 elements that differ from R4, and all 34 are handled.
 
-Coverage is deepest where the data is: Observation, Condition, AllergyIntolerance, Procedure,
+Two further rows are not counted above, because their fields exist in R4 as well and fire only
+behind an `applies` guard: `MedicationRequest.requester` and `Encounter.class`. The table has 39
+rows in total, across 14 resource types — Observation, Condition, AllergyIntolerance, Procedure,
 Immunization, DiagnosticReport, MedicationRequest, MedicationStatement, CarePlan, Communication,
 Encounter, DocumentReference, Coverage and Patient.
+
+Every figure in this section is asserted by a test against `VERSION_MIGRATION` and the spec
+digests, so it cannot drift from the table the way a hand-written count would.
 
 Handled means one of two things, and the warning says which. Most rows **migrate** the element.
 Ten **report and drop** it, because R4 has nowhere to put it and a guess written into clinical data
