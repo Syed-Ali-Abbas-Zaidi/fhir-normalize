@@ -39,6 +39,11 @@ follows [semantic versioning](https://semver.org/spec/v2.0.0.html).
   Hexadecimal escapes (`\Xdddd\`) are decoded as UTF-8 rather than one character per byte, so a
   name outside ASCII survives — `\XC3A9\` is `é`, not `Ã©`.
 
+  A timestamp whose numbers are not a real moment — month 13, minute 60, an offset past ±14:00, the
+  29th of February in a year that has none — is reported and dropped rather than serialised into a
+  date R4 would refuse. Segments R4 will not accept without a patient (`AL1`, `DG1`) are skipped and
+  named when the message has no `PID`, rather than emitted without the required element.
+
   Adds ~9 KB to a bundle that already parses, and nothing to one that does not import it.
 
 ### Changed

@@ -5,6 +5,7 @@ import {
   ALLERGY_CRITICALITY,
   ENCOUNTER_CLASS,
   HL7V2_WARNING,
+  NULL_FLAVOR_SYSTEM,
   OBSERVATION_STATUS,
   OBX_VALUE_TYPE,
   SEGMENT,
@@ -106,11 +107,18 @@ const toEncounter = (segment: Segment, context: Context): Resource => {
   };
 
   const classCode = value(segment, 2);
-  if (classCode !== undefined) {
-    const mapped = ENCOUNTER_CLASS[classCode.toUpperCase()];
-    if (mapped === undefined) warnings.add(HL7V2_WARNING.UNKNOWN_CODE('PV1-2', classCode));
-    else encounter.class = { system: ACT_CODE_SYSTEM, ...mapped };
+  const mapped = classCode === undefined ? undefined : ENCOUNTER_CLASS[classCode.toUpperCase()];
+  if (classCode !== undefined && mapped === undefined) {
+    warnings.add(HL7V2_WARNING.UNKNOWN_CODE('PV1-2', classCode));
   }
+
+  // `class` is required, so an absent or unrecognised PV1-2 gets the null
+  // flavour FHIR provides for exactly this, rather than leaving the element
+  // out and shipping an Encounter that is not R4.
+  encounter.class =
+    mapped === undefined
+      ? { system: NULL_FLAVOR_SYSTEM, code: 'UNK', display: 'unknown' }
+      : { system: ACT_CODE_SYSTEM, ...mapped };
 
   put(encounter, 'identifier', listOrNothing(repetitions(segment, 19).map(toIdentifier)));
   put(encounter, 'subject', reference(context.subject));
@@ -189,14 +197,20 @@ const toObservation = (segment: Segment, context: Context): Resource => {
 
   const observation: Resource = {
     resourceType: 'Observation',
-    id: idFrom('observation', value(segment, 3), context.index),
+    // OBX-1 is the set id, unique within the message. OBX-3 is the code, and
+    // two results of the same test in one message share it — which would give
+    // the two observations the same id.
+    id: idFrom('observation', value(segment, 1), context.index),
+    // R4 requires a status. An OBX with none, or with a code R4 has no
+    // counterpart for, still has to say something.
+    status: 'unknown',
   };
 
   const statusCode = value(segment, 11);
   if (statusCode !== undefined) {
     const status = OBSERVATION_STATUS[statusCode.toUpperCase()];
     if (status === undefined) warnings.add(HL7V2_WARNING.UNKNOWN_CODE('OBX-11', statusCode));
-    put(observation, 'status', status);
+    else observation.status = status;
   }
 
   put(observation, 'code', toCodeableConcept(repetitions(segment, 3)[0]));
@@ -257,6 +271,20 @@ const toCondition = (segment: Segment, context: Context): Resource => {
 };
 
 /** The mappers, keyed by segment id, in the order they should be applied. */
+/**
+ * Segments whose resource R4 will not accept without a patient.
+ *
+ * `AllergyIntolerance.patient` and `Condition.subject` are both `1..1`, so
+ * emitting either from a message with no PID produces a resource that is not
+ * R4 — which this library's own validator reports as an error. Those segments
+ * are skipped and named instead. `Observation.subject` and `Encounter.subject`
+ * are optional, so those still come through, carrying what the message had.
+ */
+export const REQUIRES_PATIENT: Readonly<Record<string, string>> = {
+  [SEGMENT.ALLERGY]: 'AllergyIntolerance',
+  [SEGMENT.DIAGNOSIS]: 'Condition',
+};
+
 export const SEGMENT_MAPPER: Readonly<
   Record<string, (segment: Segment, context: Context) => Resource>
 > = {

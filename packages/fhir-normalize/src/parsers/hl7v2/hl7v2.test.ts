@@ -331,6 +331,131 @@ describe('the other segments', () => {
   });
 });
 
+describe('what R4 refuses to accept', () => {
+  /*
+   * Every case here produced a Bundle that this library's own validator called
+   * invalid. The assertion is that validator, not a hand-written expectation:
+   * a mapping that drops a required element is caught by the thing that knows
+   * which elements are required.
+   */
+  const errorsIn = (...segments: string[]) =>
+    validateBundle(parse(...segments).bundle).filter((issue) => issue.severity === 'error');
+
+  it('gives an Observation a status even when OBX-11 does not', () => {
+    expect(errorsIn('PID|1||1||A^B', 'OBX|1|ST|C^D^L||text')).toEqual([]);
+    expect(parse('PID|1||1||A^B', 'OBX|1|ST|C^D^L||text').first('Observation').status).toBe(
+      'unknown',
+    );
+  });
+
+  it('gives an Observation a status even when OBX-11 is a code R4 has none for', () => {
+    const { first, warnings } = parse('PID|1||1||A^B', 'OBX|1|ST|C^D^L||text||||||Z');
+
+    expect(first('Observation').status).toBe('unknown');
+    expect(warnings.join()).toContain('OBX-11');
+  });
+
+  it('gives an Encounter a class when PV1-2 is absent or unrecognised', () => {
+    expect(errorsIn('PID|1||1||A^B', 'PV1|1')).toEqual([]);
+    expect(parse('PID|1||1||A^B', 'PV1|1').first('Encounter').class).toEqual({
+      system: 'http://terminology.hl7.org/CodeSystem/v3-NullFlavor',
+      code: 'UNK',
+      display: 'unknown',
+    });
+  });
+
+  it('skips AL1 and DG1 when there is no PID, because R4 makes the patient required', () => {
+    const { of, warnings } = parse(
+      'AL1|1|DA|^PENICILLIN',
+      segment('DG1', { 1: '1', 3: 'J18.9^Pneumonia^I10' }),
+      'OBX|1|ST|C^D^L||text',
+    );
+
+    expect(of('AllergyIntolerance')).toEqual([]);
+    expect(of('Condition')).toEqual([]);
+    // Observation.subject is optional, so that one still comes through.
+    expect(of('Observation')).toHaveLength(1);
+    expect(warnings.join()).toContain('R4 requires a patient on AllergyIntolerance');
+    expect(warnings.join()).toContain('R4 requires a patient on Condition');
+
+    expect(
+      errorsIn(
+        'AL1|1|DA|^PENICILLIN',
+        segment('DG1', { 1: '1', 3: 'J^P^I10' }),
+        'OBX|1|ST|C^D^L||t',
+      ),
+    ).toEqual([]);
+  });
+
+  it('gives two results of the same test two ids', () => {
+    // OBX-3 is the code and repeats; OBX-1 is the set id and does not.
+    const { of } = parse(
+      'PID|1||1||A^B',
+      'OBX|1|NM|8867-4^HR^LN||72||||||F',
+      'OBX|2|NM|8867-4^HR^LN||80||||||F',
+    );
+
+    expect(of('Observation').map((o) => o.id)).toEqual(['observation-1', 'observation-2']);
+  });
+
+  it('refuses a timestamp whose numbers are not a real moment', () => {
+    for (const raw of ['20261340', '20260229', '202608122560+0000', '20260812120000+9999']) {
+      const { first, warnings } = parse(segment('PID', { 1: '1', 3: '1', 5: 'A^B', 7: raw }));
+
+      expect(first('Patient').birthDate).toBeUndefined();
+      expect(warnings.join()).toContain('is not an HL7 timestamp');
+    }
+  });
+
+  it('still accepts the edges that are real', () => {
+    const dateOf = (raw: string) =>
+      parse(segment('PID', { 1: '1', 3: '1', 5: 'A^B', 7: raw })).first('Patient').birthDate;
+
+    expect(dateOf('20240229')).toBe('2024-02-29');
+    expect(dateOf('20261231')).toBe('2026-12-31');
+    // A leap second, which R4 permits, and the largest offset it allows.
+    expect(
+      parse(segment('PID', { 1: '1', 3: '1', 5: 'A^B', 29: '20261231235960+1400' })).first(
+        'Patient',
+      ).deceasedDateTime,
+    ).toBe('2026-12-31T23:59:60+14:00');
+  });
+});
+
+describe('whitespace inside a segment is data', () => {
+  it('keeps a value that begins or ends with a space', () => {
+    // Trimming the line would silently edit the comment.
+    const { first } = parse('PID|1||1||A^B', 'OBX|1|ST|C^D^L||  spaced  ||||||F');
+
+    expect(first('Observation').valueString).toBe('  spaced  ');
+  });
+
+  it('still tolerates a stray byte before MSH, and blank lines between segments', () => {
+    const raw = ['  ', `  ${HEADER}`, '', 'PID|1||42||DOE^JOHN', ''].join('\r\n');
+    const result = hl7v2Parser.parse(raw);
+
+    expect(result.bundle.entry).toHaveLength(1);
+  });
+});
+
+describe('addresses and telecom', () => {
+  it('keeps an address that is only a state or only a country', () => {
+    const { first } = parse('PID|1||1||A^B||||||^^^CA');
+
+    expect(first('Patient').address).toEqual([{ state: 'CA' }]);
+  });
+
+  it('marks a work email as work, not home', () => {
+    const { first } = parse(
+      segment('PID', { 1: '1', 3: '1', 5: 'A^B', 14: '^^NET^work@b.example' }),
+    );
+
+    expect(first('Patient').telecom).toEqual([
+      { system: 'email', value: 'work@b.example', use: 'work' },
+    ]);
+  });
+});
+
 describe('the message as a whole', () => {
   it('names the segments it skipped rather than dropping them silently', () => {
     const { warnings } = parse('PID|1||1||A^B', 'NK1|1|DOE^JANE', 'NK1|2|DOE^JIM', 'IN1|1|PLAN');

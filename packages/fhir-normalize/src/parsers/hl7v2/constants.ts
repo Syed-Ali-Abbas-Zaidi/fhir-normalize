@@ -85,6 +85,9 @@ export const ENCOUNTER_CLASS: Readonly<Record<string, { code: string; display: s
 
 export const ACT_CODE_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v3-ActCode';
 
+/** What FHIR provides for a required coded element with nothing to put in it. */
+export const NULL_FLAVOR_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v3-NullFlavor';
+
 /** `AL1-4` to `AllergyIntolerance.criticality`. */
 export const ALLERGY_CRITICALITY: Readonly<Record<string, string>> = {
   SV: 'high',
@@ -105,6 +108,9 @@ export const HL7V2_ERROR = {
 } as const;
 
 export const HL7V2_WARNING = {
+  SKIPPED_WITHOUT_PATIENT: (id: string, resourceType: string, count: number): string =>
+    `${count} ${id} segment${count === 1 ? '' : 's'} skipped: R4 requires a patient on ` +
+    `${resourceType} and the message has no PID to reference.`,
   UNMAPPED_SEGMENT: (id: string, count: number): string =>
     `${count} ${id} segment${count === 1 ? '' : 's'} skipped — this adapter maps PID, PV1, OBX, AL1 and DG1 only.`,
   NO_PATIENT: (id: string): string =>

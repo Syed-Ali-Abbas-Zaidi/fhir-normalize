@@ -1,7 +1,7 @@
 import type { FhirResource } from 'fhir/r4';
 import { createCollectionBundle, ParseError, SOURCE_FORMAT, type WarningLog } from '../../core';
 import { HEADER_SEGMENT, HL7V2_ERROR, HL7V2_WARNING, SEGMENT } from './constants';
-import { SEGMENT_MAPPER } from './segments';
+import { REQUIRES_PATIENT, SEGMENT_MAPPER } from './segments';
 import type { Message } from './types';
 
 /**
@@ -61,7 +61,8 @@ export const toBundle = (message: Message, warnings: WarningLog) => {
     .filter((resource): resource is Record<string, unknown> => resource !== undefined);
 
   const subject = subjectOf(patients);
-  let queued = 0;
+  const skipped = new Map<string, number>();
+  let reportedNoPatient = false;
 
   const rest = message.segments.flatMap((segment) => {
     if (segment.id === SEGMENT.PATIENT) return [];
@@ -69,13 +70,23 @@ export const toBundle = (message: Message, warnings: WarningLog) => {
     const mapper = SEGMENT_MAPPER[segment.id];
     if (mapper === undefined) return [];
 
-    if (subject === undefined && queued === 0) {
-      queued += 1;
+    const needsPatient = REQUIRES_PATIENT[segment.id];
+    if (subject === undefined && needsPatient !== undefined) {
+      skipped.set(segment.id, (skipped.get(segment.id) ?? 0) + 1);
+      return [];
+    }
+
+    if (subject === undefined && !reportedNoPatient) {
+      reportedNoPatient = true;
       warnings.add(HL7V2_WARNING.NO_PATIENT(segment.id));
     }
 
     return [mapper(segment, { warnings, subject, index: next(segment.id) })];
   });
+
+  for (const [id, count] of [...skipped].sort(([a], [b]) => (a < b ? -1 : 1))) {
+    warnings.add(HL7V2_WARNING.SKIPPED_WITHOUT_PATIENT(id, REQUIRES_PATIENT[id] as string, count));
+  }
 
   reportUnmapped(message, warnings);
 

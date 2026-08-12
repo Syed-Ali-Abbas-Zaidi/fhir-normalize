@@ -6,6 +6,59 @@ import type { Repetition } from './types';
 /** `YYYY[MM[DD[HH[MM[SS[.S+]]]]]][+/-ZZZZ]`, the one timestamp v2 uses. */
 const TIMESTAMP = /^(\d{4})(\d{2})?(\d{2})?(\d{2})?(\d{2})?(\d{2})?(\.\d{1,4})?([+-]\d{4})?$/;
 
+/** R4 allows an offset from -14:00 to +14:00 and no further. */
+const MAX_OFFSET_MINUTES = 14 * 60;
+
+/** Whether the numbers form a day that exists. */
+const isRealDate = (year: number, month: number, day: number): boolean => {
+  if (month < 1 || month > 12 || day < 1) return false;
+
+  // Day 0 of the next month is the last day of this one.
+  return day <= new Date(Date.UTC(year, month, 0)).getUTCDate();
+};
+
+/**
+ * The parts an R4 `dateTime` would refuse.
+ *
+ * The regex above matches shape, not meaning: `20261340` and `202608122560`
+ * both satisfy it. Serialised unchecked they become `2026-13-40` and a
+ * `dateTime` with minute 60, neither of which is R4 — the Bundle would claim
+ * conformance it does not have.
+ *
+ * Calendar validity is checked too, so `20260229` is refused in a year with no
+ * 29th of February. R4's own regex would accept that, being a regex; a day
+ * that does not exist is a data-entry error either way, and it is reported
+ * rather than silently dropped.
+ */
+const isValid = (parts: {
+  year: string;
+  month: string | undefined;
+  day: string | undefined;
+  hour: string | undefined;
+  minute: string | undefined;
+  second: string | undefined;
+  offset: string | undefined;
+}): boolean => {
+  const { year, month, day, hour, minute, second, offset } = parts;
+
+  if (month !== undefined && (Number(month) < 1 || Number(month) > 12)) return false;
+  if (day !== undefined && !isRealDate(Number(year), Number(month), Number(day))) return false;
+
+  if (hour !== undefined && Number(hour) > 23) return false;
+  if (minute !== undefined && Number(minute) > 59) return false;
+  // 60 is a leap second, which R4 permits.
+  if (second !== undefined && Number(second) > 60) return false;
+
+  if (offset !== undefined) {
+    const hours = Number(offset.slice(1, 3));
+    const minutes = Number(offset.slice(3));
+    if (minutes > 59) return false;
+    if (hours * 60 + minutes > MAX_OFFSET_MINUTES) return false;
+  }
+
+  return true;
+};
+
 /**
  * An HL7 timestamp as an R4 `dateTime`.
  *
@@ -30,6 +83,11 @@ export const toDateTime = (
   }
 
   const [, year, month, day, hour, minute, second, fraction, offset] = match;
+
+  if (year === undefined || !isValid({ year, month, day, hour, minute, second, offset })) {
+    warnings.add(HL7V2_WARNING.UNPARSEABLE_DATE(at, raw));
+    return undefined;
+  }
 
   if (month === undefined) return year;
   if (day === undefined) return `${year}-${month}`;
@@ -124,7 +182,15 @@ export const toAddress = (repetition: Repetition): Record<string, unknown> | und
   const postalCode = valueAt(repetition, 5);
   const country = valueAt(repetition, 6);
 
-  if (line.length === 0 && city === undefined && postalCode === undefined) return undefined;
+  if (
+    line.length === 0 &&
+    city === undefined &&
+    state === undefined &&
+    postalCode === undefined &&
+    country === undefined
+  ) {
+    return undefined;
+  }
 
   const address: Record<string, unknown> = {};
   if (line.length > 0) address.line = line;
@@ -149,7 +215,7 @@ export const toContactPoint = (
 ): Record<string, unknown> | undefined => {
   const email = valueAt(repetition, 4);
   if (valueAt(repetition, 3) === 'NET' && email !== undefined) {
-    return { system: 'email', value: email, use: 'home' };
+    return { system: 'email', value: email, use };
   }
 
   const number = valueAt(repetition, 1) ?? valueAt(repetition, 12);

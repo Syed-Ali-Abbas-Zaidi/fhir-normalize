@@ -159,19 +159,30 @@ export const decodeMessage = (raw: unknown): Message => {
     throw new ParseError(SOURCE_FORMAT.HL7V2, HL7V2_ERROR.NOT_A_STRING);
   }
 
-  const lines = raw
-    .split(SEGMENT_TERMINATOR)
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
+  /*
+   * Trimmed to decide whether a line is blank, never to produce the line that
+   * gets parsed. Whitespace inside a segment is data — a trailing space in an
+   * `OBX-5` comment is part of the comment — and in principle the field
+   * separator itself could be one.
+   */
+  const lines = raw.split(SEGMENT_TERMINATOR).filter((line) => line.trim().length > 0);
 
-  const [header] = lines;
+  const [first] = lines;
+  const header = first?.trimStart();
   if (header === undefined || !header.startsWith(HEADER_SEGMENT)) {
     throw new ParseError(SOURCE_FORMAT.HL7V2, HL7V2_ERROR.NO_HEADER);
   }
 
   const delimiters = delimitersFrom(header);
 
-  return { delimiters, segments: lines.map((line) => splitSegment(line, delimiters)) };
+  // Only the first line is trimmed at the front, and only because a stray byte
+  // before MSH would otherwise make the whole message unreadable.
+  const [, ...rest] = lines;
+
+  return {
+    delimiters,
+    segments: [header, ...rest].map((line) => splitSegment(line, delimiters)),
+  };
 };
 
 /* -------------------------------------------------------------------------- */
