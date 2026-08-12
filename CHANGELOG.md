@@ -5,6 +5,45 @@ All notable changes to `fhir-normalize`.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.0] — 2026-08-12
+
+### Added
+
+- **Cross-version migration widened from 14 rows to 38**, aimed at the resource types that actually
+  appear in a real export rather than at the raw element count. On a realistic STU3 bundle,
+  `validateBundle` went from reporting **14 non-R4 elements to none**:
+
+  | Resource | Now handled |
+  | --- | --- |
+  | `Condition`, `AllergyIntolerance` | `assertedDate` → `recordedDate` |
+  | `Procedure` | `notDone` → `status: "not-done"`, `notDoneReason` → `statusReason`, `definition` reported |
+  | `Immunization` | `date` → `occurrenceDateTime`, `practitioner` → `performer`, `notGiven` → status, `explanation` split into `reasonCode` and `statusReason`, `vaccinationProtocol` → `protocolApplied` |
+  | `DiagnosticReport` | `context` → `encounter`, `codedDiagnosis` → `conclusionCode`, `image` → `media` |
+  | `Coverage` | `sequence` → `order` as a `positiveInt`, `grouping` reported |
+  | `Observation` | `valueAttachment` reported |
+  | `MedicationStatement` | `taken` and `reasonNotTaken` reported |
+  | `DocumentReference` | `created` reported |
+  | `CarePlan`, `MedicationRequest`, `Procedure` | `definition` reported |
+
+  `notDone` and `notGiven` are the rows that matter most. STU3 recorded "this did not happen" in a
+  boolean beside the status; R4 removed both and added `not-done` to the status value set. Dropping
+  them would have delivered a payload saying a vaccine was *not* given as one saying it was, so
+  `true` now overwrites the status — which is safe precisely because the STU3 status cannot have
+  said `not-done`, a code that postdates it.
+
+  Ten of the rows report and drop rather than migrate, because R4 has nowhere to put the element and
+  a guess written into clinical data is worse than a documented loss. Where a value cannot be
+  expressed conformantly — a `Coverage.sequence` of `"1a"` where R4 wants a `positiveInt`, a
+  performer with no actor where R4 requires one — the element is dropped and the warning says so
+  rather than writing something invalid.
+
+### Fixed
+
+- **`MedicationStatement.context` is no longer treated as the `context` → `encounter` rename.** R4
+  kept `context` on that resource and has no `encounter` element, so the rename its neighbours get
+  does not apply. Caught by checking each target against the digest instead of following the
+  pattern.
+
 ## [2.4.0] — 2026-08-11
 
 ### Added
