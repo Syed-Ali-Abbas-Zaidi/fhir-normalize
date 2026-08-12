@@ -211,3 +211,50 @@ export const toProtocolApplied = (value: unknown): Converted => {
     }),
   );
 };
+
+/**
+ * R5 collapsed `reasonCode` and `reasonReference` into one `reason` list of
+ * `CodeableReference`, which carries a `concept`, a `reference`, or both. R4
+ * wants them apart again, so one source list becomes up to two target fields.
+ *
+ * Returns the fields to merge, so a list with nothing usable in it yields `{}`
+ * — reported as restructured into nothing rather than written as two empty
+ * arrays, which are not valid FHIR JSON.
+ */
+export const toReasonPair = (value: unknown): UnknownRecord => {
+  const items = (Array.isArray(value) ? value : [value]).filter(isRecord);
+
+  const concepts = items.map((item) => item.concept).filter(isRecord);
+  const references = items.map((item) => item.reference).filter(isRecord);
+
+  const result: UnknownRecord = {};
+  if (concepts.length > 0) result.reasonCode = concepts;
+  if (references.length > 0) result.reasonReference = references;
+
+  return result;
+};
+
+/**
+ * `Encounter.reason` is the same idea one level deeper: R5 wraps the
+ * `CodeableReference` list in a backbone carrying a `use`, so the references
+ * have to be gathered out of `value` first.
+ *
+ * The `use` — why this reason was recorded — has no R4 home and is dropped.
+ */
+export const toEncounterReasonPair = (value: unknown): UnknownRecord => {
+  const items = (Array.isArray(value) ? value : [value]).filter(isRecord);
+
+  return toReasonPair(items.flatMap((item) => (Array.isArray(item.value) ? item.value : [])));
+};
+
+/**
+ * R5 `Immunization.informationSource` is a `CodeableReference`; R4
+ * `reportOrigin` is a plain `CodeableConcept`.
+ *
+ * Only the `concept` half can cross. A source recorded purely as a reference —
+ * a Practitioner who reported the immunization — has nowhere to go in R4, so it
+ * yields nothing and is reported as unconvertible rather than written as a
+ * CodeableConcept it is not.
+ */
+export const toConceptOnly = (value: unknown): Converted =>
+  isRecord(value) && isRecord(value.concept) ? value.concept : undefined;

@@ -337,6 +337,320 @@ describe('R5 -> R4', () => {
   });
 });
 
+describe('R5 -> R4, the widened rows', () => {
+  it('renames every occurrence[x] R4 has a performed[x] for', () => {
+    for (const [source, target, value] of [
+      ['occurrenceDateTime', 'performedDateTime', '2026-01-02'],
+      ['occurrencePeriod', 'performedPeriod', { start: '2026-01-02' }],
+      ['occurrenceString', 'performedString', 'last winter'],
+      ['occurrenceAge', 'performedAge', { value: 40, unit: 'a' }],
+      ['occurrenceRange', 'performedRange', { low: { value: 1 }, high: { value: 2 } }],
+    ] as const) {
+      const { resource } = migrate({ resourceType: 'Procedure', id: 'p', [source]: value });
+
+      expect(resource[target]).toEqual(value);
+      expect(resource).not.toHaveProperty(source);
+    }
+  });
+
+  it('leaves occurrenceTiming alone, because R4 has no performedTiming', () => {
+    // R4's performed[x] is dateTime | Period | string | Age | Range. Renaming
+    // this would target an element that does not exist.
+    const { resource } = migrate({
+      resourceType: 'Procedure',
+      id: 'p',
+      occurrenceTiming: { event: ['2026-01-02'] },
+    });
+
+    expect(resource.occurrenceTiming).toEqual({ event: ['2026-01-02'] });
+    expect(resource).not.toHaveProperty('performedTiming');
+  });
+
+  it('splits the R5 reason list back into reasonCode and reasonReference', () => {
+    const { resource } = migrate({
+      resourceType: 'Procedure',
+      id: 'p',
+      reason: [
+        { concept: { text: 'infection' } },
+        { reference: { reference: 'Condition/c1' } },
+        { concept: { text: 'both' }, reference: { reference: 'Condition/c2' } },
+      ],
+    });
+
+    expect(resource.reasonCode).toEqual([{ text: 'infection' }, { text: 'both' }]);
+    expect(resource.reasonReference).toEqual([
+      { reference: 'Condition/c1' },
+      { reference: 'Condition/c2' },
+    ]);
+    expect(resource).not.toHaveProperty('reason');
+  });
+
+  it('writes neither half when the reason list carries nothing usable', () => {
+    // Two empty arrays are not valid FHIR JSON; nothing is the right answer.
+    const { resource, warnings } = migrate({
+      resourceType: 'Procedure',
+      id: 'p',
+      reason: [{ unexpected: true }],
+    });
+
+    expect(resource).not.toHaveProperty('reasonCode');
+    expect(resource).not.toHaveProperty('reasonReference');
+    expect(warnings.join()).toContain('reason');
+  });
+
+  it('applies the reason split to every resource that gained it', () => {
+    for (const resourceType of [
+      'Procedure',
+      'Immunization',
+      'MedicationRequest',
+      'MedicationStatement',
+    ]) {
+      const { resource } = migrate({
+        resourceType,
+        id: 'x',
+        reason: [{ concept: { text: 'why' } }],
+      });
+
+      expect(resource.reasonCode).toEqual([{ text: 'why' }]);
+    }
+  });
+
+  it('unwraps the Encounter reason backbone before splitting it', () => {
+    const { resource } = migrate({
+      resourceType: 'Encounter',
+      id: 'e',
+      reason: [{ use: [{ text: 'AD' }], value: [{ concept: { text: 'chest pain' } }] }],
+    });
+
+    expect(resource.reasonCode).toEqual([{ text: 'chest pain' }]);
+  });
+
+  /*
+   * Two releases put different things in `Encounter.reason` — STU3 a
+   * CodeableConcept list, R5 a backbone carrying `use`. Both had a row, and
+   * unguarded the first one claimed the field for both releases: an R5 payload
+   * came out with the raw backbone sitting in `reasonCode`.
+   */
+  it('tells the two Encounter.reason shapes apart', () => {
+    const fromR5 = migrate({
+      resourceType: 'Encounter',
+      id: 'e',
+      reason: [{ value: [{ concept: { text: 'R5 shape' } }] }],
+    });
+    const fromStu3 = migrate({
+      resourceType: 'Encounter',
+      id: 'e',
+      reason: [{ text: 'STU3 shape' }],
+    });
+
+    expect(fromR5.resource.reasonCode).toEqual([{ text: 'R5 shape' }]);
+    expect(fromStu3.resource.reasonCode).toEqual([{ text: 'STU3 shape' }]);
+  });
+
+  it('renames the R5 fields that map straight across', () => {
+    const cases: [string, string, string, unknown][] = [
+      ['Encounter', 'actualPeriod', 'period', { start: '2026-01-01' }],
+      ['Encounter', 'admission', 'hospitalization', { admitSource: { text: 'GP' } }],
+      ['MedicationStatement', 'encounter', 'context', { reference: 'Encounter/e1' }],
+      ['Location', 'form', 'physicalType', { text: 'room' }],
+      ['DiagnosticReport', 'study', 'imagingStudy', [{ reference: 'ImagingStudy/s1' }]],
+      ['MedicationRequest', 'reported', 'reportedBoolean', true],
+    ];
+
+    for (const [resourceType, source, target, value] of cases) {
+      const { resource } = migrate({ resourceType, id: 'x', [source]: value });
+
+      expect(resource[target]).toEqual(value);
+      expect(resource).not.toHaveProperty(source);
+    }
+  });
+
+  it('wraps Coverage.insurer in the list R4 requires', () => {
+    // R5 insurer is one reference; R4 payor is a required list.
+    const { resource } = migrate({
+      resourceType: 'Coverage',
+      id: 'c',
+      insurer: { reference: 'Organization/o1' },
+    });
+
+    expect(resource.payor).toEqual([{ reference: 'Organization/o1' }]);
+  });
+
+  it('keeps only the concept half of Immunization.informationSource', () => {
+    const asConcept = migrate({
+      resourceType: 'Immunization',
+      id: 'i',
+      informationSource: { concept: { text: 'parent' } },
+    });
+    const asReference = migrate({
+      resourceType: 'Immunization',
+      id: 'i',
+      informationSource: { reference: { reference: 'Practitioner/p1' } },
+    });
+
+    expect(asConcept.resource.reportOrigin).toEqual({ text: 'parent' });
+    // R4 reportOrigin is a CodeableConcept, so a reference cannot cross.
+    expect(asReference.resource).not.toHaveProperty('reportOrigin');
+    expect(asReference.warnings.join()).toContain('could not be expressed');
+  });
+
+  it('reuses the medication[x] split for MedicationStatement', () => {
+    const { resource } = migrate({
+      resourceType: 'MedicationStatement',
+      id: 'm',
+      medication: { concept: { text: 'aspirin' } },
+    });
+
+    expect(resource.medicationCodeableConcept).toEqual({ text: 'aspirin' });
+  });
+
+  it('drops a value[x] type R4 forbids, rather than passing it through', () => {
+    /*
+     * The rest of the R5 gap passes through for `validate` to report. A choice
+     * carrying a type R4 forbids is different: it makes the resource wrong.
+     *
+     * Each source gets a value of its own datatype — a Reference where the key
+     * says Reference, an Attachment where it says Attachment. Feeding both the
+     * same Reference-shaped object would let a regression that preserves valid
+     * Attachments still pass.
+     */
+    const cases: [string, Record<string, unknown>][] = [
+      ['valueReference', { reference: 'Media/m1' }],
+      ['valueAttachment', { contentType: 'image/jpeg', data: 'AA==' }],
+    ];
+
+    for (const [source, value] of cases) {
+      const { resource, warnings } = migrate({
+        resourceType: 'Observation',
+        id: 'o',
+        [source]: value,
+      });
+
+      expect(resource).not.toHaveProperty(source);
+      expect(warnings.join()).toContain(source);
+    }
+  });
+});
+
+describe('a pattern applies to every resource that fits it', () => {
+  /*
+   * These were wired to a curated handful of resource types and fit far more.
+   * One test per pattern on a resource that had no row before, rather than
+   * thirty near-identical ones — the conformance suite is what proves the set
+   * is complete.
+   */
+  it('splits the R5 reason list on resources beyond the original five', () => {
+    for (const resourceType of ['ServiceRequest', 'Communication', 'ImagingStudy', 'CareTeam']) {
+      const { resource } = migrate({
+        resourceType,
+        id: 'x',
+        reason: [{ concept: { text: 'why' } }, { reference: { reference: 'Condition/c1' } }],
+      });
+
+      expect(resource.reasonCode).toEqual([{ text: 'why' }]);
+      expect(resource.reasonReference).toEqual([{ reference: 'Condition/c1' }]);
+      expect(resource).not.toHaveProperty('reason');
+    }
+  });
+
+  it('splits medication[x] on the administration and dispense resources too', () => {
+    for (const resourceType of ['MedicationAdministration', 'MedicationDispense']) {
+      const { resource } = migrate({
+        resourceType,
+        id: 'x',
+        medication: { concept: { text: 'aspirin' } },
+      });
+
+      expect(resource.medicationCodeableConcept).toEqual({ text: 'aspirin' });
+      expect(resource).not.toHaveProperty('medication');
+    }
+  });
+
+  it('renames R5 encounter to context wherever R4 kept context', () => {
+    for (const resourceType of ['ChargeItem', 'MedicationAdministration', 'MedicationDispense']) {
+      const { resource } = migrate({
+        resourceType,
+        id: 'x',
+        encounter: { reference: 'Encounter/e1' },
+      });
+
+      expect(resource.context).toEqual({ reference: 'Encounter/e1' });
+      expect(resource).not.toHaveProperty('encounter');
+    }
+  });
+
+  it('renames STU3 context to encounter beyond the original six', () => {
+    for (const resourceType of ['Task', 'ImagingStudy', 'QuestionnaireResponse', 'Media']) {
+      const { resource } = migrate({
+        resourceType,
+        id: 'x',
+        context: { reference: 'Encounter/e1' },
+      });
+
+      expect(resource.encounter).toEqual({ reference: 'Encounter/e1' });
+      expect(resource).not.toHaveProperty('context');
+    }
+  });
+
+  it('reports STU3 definition on every resource that carried it', () => {
+    for (const resourceType of ['ChargeItem', 'DeviceRequest', 'MedicationAdministration']) {
+      const { resource, warnings } = migrate({
+        resourceType,
+        id: 'x',
+        definition: [{ reference: 'ActivityDefinition/a1' }],
+      });
+
+      expect(resource).not.toHaveProperty('definition');
+      expect(warnings.join()).toContain('definition');
+    }
+  });
+
+  /*
+   * Three resources carry `reason` in both releases under different shapes, so
+   * each row has to recognise its own. Unguarded, the R5 rewrite would split a
+   * STU3 CodeableConcept list into nothing at all.
+   */
+  it('tells the STU3 and R5 reason shapes apart on every resource that has both', () => {
+    for (const resourceType of ['Appointment', 'ImagingStudy']) {
+      const fromR5 = migrate({
+        resourceType,
+        id: 'x',
+        reason: [{ concept: { text: 'R5' } }],
+      });
+      const fromStu3 = migrate({ resourceType, id: 'x', reason: [{ text: 'STU3' }] });
+
+      expect(fromR5.resource.reasonCode).toEqual([{ text: 'R5' }]);
+      expect(fromStu3.resource.reasonCode).toEqual([{ text: 'STU3' }]);
+      expect(fromR5.resource).not.toHaveProperty('reason');
+      expect(fromStu3.resource).not.toHaveProperty('reason');
+    }
+  });
+
+  it('wraps a STU3 ImagingStudy reason, which was 0..1 where R4 takes a list', () => {
+    const { resource } = migrate({
+      resourceType: 'ImagingStudy',
+      id: 'x',
+      reason: { text: 'one concept, not a list' },
+    });
+
+    expect(resource.reasonCode).toEqual([{ text: 'one concept, not a list' }]);
+    expect(resource).not.toHaveProperty('reason');
+  });
+
+  it('leaves Task.reason as one value, because R4 Task keeps it 0..1', () => {
+    // Every other resource makes reasonCode a list. Task does not, which is why
+    // the R5 rewrite is excluded there and this plain rename is right.
+    const { resource } = migrate({
+      resourceType: 'Task',
+      id: 'x',
+      reason: { text: 'single' },
+    });
+
+    expect(resource.reasonCode).toEqual({ text: 'single' });
+    expect(resource).not.toHaveProperty('reason');
+  });
+});
+
 describe('R4 input is left alone', () => {
   it.each([
     ['an Encounter with a Coding class', r4Encounter],

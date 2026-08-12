@@ -1,5 +1,7 @@
 import {
   toAnnotations,
+  toConceptOnly,
+  toEncounterReasonPair,
   toFirstCoding,
   toImmunizationExplanation,
   toList,
@@ -8,6 +10,7 @@ import {
   toPerformerList,
   toPositiveInt,
   toProtocolApplied,
+  toReasonPair,
   toReferenceList,
   toRequesterReference,
 } from './converters';
@@ -65,6 +68,76 @@ const assertedToRecorded: FieldMigration = {
 };
 
 /**
+ * R5 collapsed `reasonCode` and `reasonReference` into one `reason` list of
+ * `CodeableReference`. Same migration on four resources; `Encounter` wraps the
+ * list in a backbone and needs its own row.
+ */
+const reasonToPair: FieldMigration = {
+  from: FHIR_VERSION.R5,
+  source: 'reason',
+  rewrite: toReasonPair,
+  writes: ['reasonCode', 'reasonReference'],
+  reason:
+    'R5 carries one CodeableReference list; R4 splits it into reasonCode and reasonReference.',
+};
+
+/**
+ * The same row for a resource where STU3 also uses `reason`. Ordered before the
+ * STU3 row and guarded, so each release's shape is claimed by the row that
+ * understands it.
+ */
+const guardedReasonToPair: FieldMigration = {
+  ...reasonToPair,
+  applies: (value) => isCodeableReferenceList(value),
+};
+
+/** STU3 `incomingReferral` is R4 `basedOn`, on both resources that had it. */
+const incomingReferralToBasedOn: FieldMigration = {
+  from: FHIR_VERSION.STU3,
+  source: 'incomingReferral',
+  target: 'basedOn',
+};
+
+/**
+ * R5 renamed `performed[x]` to `occurrence[x]` on Procedure. One row per
+ * permitted type, because a choice element is only ever serialized expanded.
+ *
+ * `occurrenceTiming` is absent on purpose: R4's `performed[x]` allows
+ * dateTime, Period, string, Age and Range and no Timing, so there is nothing
+ * to rename it onto. It passes through and validation reports it.
+ */
+const occurrenceToPerformed: readonly FieldMigration[] = (
+  ['DateTime', 'Period', 'String', 'Age', 'Range'] as const
+).map((type) => ({
+  from: FHIR_VERSION.R5,
+  source: `occurrence${type}`,
+  target: `performed${type}`,
+}));
+
+/**
+ * R5 replaced the `medication[x]` choice with one `CodeableReference`. Same
+ * migration wherever a resource carries a medication.
+ */
+const medicationToChoice: FieldMigration = {
+  from: FHIR_VERSION.R5,
+  source: 'medication',
+  rewrite: toMedicationChoice,
+  writes: ['medicationCodeableConcept', 'medicationReference'],
+  reason: 'R5 uses a CodeableReference; R4 uses the medication[x] choice pair.',
+};
+
+/**
+ * R5 renamed `context` to `encounter` on the resources that had it — the
+ * opposite of the STU3 rename above, which is why both directions appear in
+ * this table under names that read backwards from each other.
+ */
+const encounterToContext: FieldMigration = {
+  from: FHIR_VERSION.R5,
+  source: 'encounter',
+  target: 'context',
+};
+
+/**
  * Curated, not exhaustive.
  *
  * Every row is a documented difference between a release and R4. It is
@@ -82,9 +155,17 @@ export const VERSION_MIGRATION: MigrationTable = {
       convert: toAnnotations,
     },
     {
+      from: FHIR_VERSION.R5,
+      source: 'valueReference',
+      reason: 'R4 does not permit Reference on Observation.value[x].',
+    },
+    {
+      // One row, not one per release: STU3 and R5 both allow Attachment here and
+      // R4 allows neither, so the marker means the same thing whichever it came
+      // from. The release named in the warning is the one this row declares.
       from: FHIR_VERSION.STU3,
       source: 'valueAttachment',
-      reason: 'R4 removed Attachment from Observation.value[x].',
+      reason: 'Neither STU3 nor R5 restricts value[x] as R4 does; R4 permits no Attachment.',
     },
     {
       from: FHIR_VERSION.STU3,
@@ -108,6 +189,8 @@ export const VERSION_MIGRATION: MigrationTable = {
   AllergyIntolerance: [assertedToRecorded],
   Procedure: [
     contextToEncounter,
+    ...occurrenceToPerformed,
+    reasonToPair,
     {
       from: FHIR_VERSION.STU3,
       source: 'notDoneReason',
@@ -117,11 +200,21 @@ export const VERSION_MIGRATION: MigrationTable = {
       from: FHIR_VERSION.STU3,
       source: 'notDone',
       rewrite: toNotDoneStatus,
+      writes: ['status'],
       reason: 'R4 removed the boolean and added "not-done" to the status value set.',
     },
     definitionDropped,
   ],
   Immunization: [
+    reasonToPair,
+    {
+      from: FHIR_VERSION.R5,
+      source: 'informationSource',
+      target: 'reportOrigin',
+      convert: toConceptOnly,
+      reason:
+        'R5 uses a CodeableReference and R4 a CodeableConcept, so a source recorded only as a reference cannot cross.',
+    },
     {
       from: FHIR_VERSION.STU3,
       source: 'date',
@@ -138,12 +231,14 @@ export const VERSION_MIGRATION: MigrationTable = {
       from: FHIR_VERSION.STU3,
       source: 'notGiven',
       rewrite: toNotDoneStatus,
+      writes: ['status'],
       reason: 'R4 removed the boolean and added "not-done" to the status value set.',
     },
     {
       from: FHIR_VERSION.STU3,
       source: 'explanation',
       rewrite: toImmunizationExplanation,
+      writes: ['reasonCode', 'statusReason'],
       reason:
         'R4 splits the pair by meaning: "reason" is reasonCode, "reasonNotGiven" is statusReason, which is 0..1 so only the first survives.',
     },
@@ -159,6 +254,11 @@ export const VERSION_MIGRATION: MigrationTable = {
   DiagnosticReport: [
     contextToEncounter,
     {
+      from: FHIR_VERSION.R5,
+      source: 'study',
+      target: 'imagingStudy',
+    },
+    {
       from: FHIR_VERSION.STU3,
       source: 'codedDiagnosis',
       target: 'conclusionCode',
@@ -173,6 +273,11 @@ export const VERSION_MIGRATION: MigrationTable = {
     // No `context` row: R4 MedicationStatement kept `context` and has no
     // `encounter`, so the rename that applies to its neighbours does not apply
     // here. Checked against the digest rather than assumed from the pattern.
+    // R5 went the other way and renamed `context` to `encounter`, which is why
+    // the R5 row below reads backwards from the STU3 ones.
+    encounterToContext,
+    medicationToChoice,
+    reasonToPair,
     {
       from: FHIR_VERSION.STU3,
       source: 'taken',
@@ -184,7 +289,30 @@ export const VERSION_MIGRATION: MigrationTable = {
       reason: 'R4 removed the element along with "taken", which was its only trigger.',
     },
   ],
+  Location: [
+    {
+      from: FHIR_VERSION.R5,
+      source: 'form',
+      target: 'physicalType',
+    },
+  ],
+  Composition: [
+    {
+      from: FHIR_VERSION.STU3,
+      source: 'class',
+      target: 'category',
+      convert: toList,
+      reason: 'R4 category is a list where STU3 class was a single concept.',
+    },
+  ],
   Coverage: [
+    {
+      from: FHIR_VERSION.R5,
+      source: 'insurer',
+      target: 'payor',
+      convert: toList,
+      reason: 'R4 payor is a required list where R5 insurer is a single reference.',
+    },
     {
       from: FHIR_VERSION.STU3,
       source: 'sequence',
@@ -198,7 +326,12 @@ export const VERSION_MIGRATION: MigrationTable = {
       reason: 'R4 replaced the backbone with the "class" list, which names each value differently.',
     },
   ],
-  Communication: [contextToEncounter],
+  Communication: [
+    contextToEncounter,
+    definitionDropped,
+    reasonToPair,
+    { from: FHIR_VERSION.STU3, source: 'notDoneReason', target: 'statusReason' },
+  ],
   CarePlan: [contextToEncounter, definitionDropped],
   MedicationRequest: [
     contextToEncounter,
@@ -211,12 +344,14 @@ export const VERSION_MIGRATION: MigrationTable = {
       convert: toRequesterReference,
       reason: 'STU3 wrapped the requester in a backbone element; "onBehalfOf" has no R4 home.',
     },
+    reasonToPair,
     {
       from: FHIR_VERSION.R5,
-      source: 'medication',
-      rewrite: toMedicationChoice,
-      reason: 'R5 uses a CodeableReference; R4 uses the medication[x] choice pair.',
+      source: 'reported',
+      target: 'reportedBoolean',
+      reason: 'R5 narrowed the choice to a boolean; R4 keeps reported[x].',
     },
+    medicationToChoice,
   ],
   Patient: [
     {
@@ -226,10 +361,24 @@ export const VERSION_MIGRATION: MigrationTable = {
     },
   ],
   Encounter: [
+    incomingReferralToBasedOn,
+    /*
+     * Two releases put different things in `Encounter.reason`, and the rows are
+     * ordered and guarded so the right one claims it. R5 wraps a
+     * CodeableReference list in a backbone carrying `use`; STU3 has a plain
+     * CodeableConcept list. Unguarded, whichever row ran first would rename the
+     * other release's shape wholesale.
+     */
     {
-      from: FHIR_VERSION.STU3,
-      source: 'incomingReferral',
-      target: 'basedOn',
+      from: FHIR_VERSION.R5,
+      source: 'reason',
+      // Wrapped rather than referenced, so the guard is read when it runs and
+      // not while this table is still being built. `requester` below does the same.
+      applies: (value) => isEncounterReasonBackbone(value),
+      rewrite: toEncounterReasonPair,
+      writes: ['reasonCode', 'reasonReference'],
+      reason:
+        'R5 wraps the CodeableReference list in a backbone; the "use" that says why the reason was recorded has no R4 home.',
     },
     {
       from: FHIR_VERSION.STU3,
@@ -243,6 +392,13 @@ export const VERSION_MIGRATION: MigrationTable = {
     },
     {
       from: FHIR_VERSION.R5,
+      source: 'admission',
+      target: 'hospitalization',
+      reason:
+        "R5 renamed the backbone; its children are a subset of R4's, so nothing is carried that R4 does not define.",
+    },
+    {
+      from: FHIR_VERSION.R5,
       source: 'class',
       // R4 `class` is a single Coding, R5 a CodeableConcept list — the array
       // shape is what tells the two apart.
@@ -251,6 +407,57 @@ export const VERSION_MIGRATION: MigrationTable = {
       convert: toFirstCoding,
       reason: 'R4 allows only one class Coding; any additional codings were dropped.',
     },
+  ],
+  Appointment: [
+    guardedReasonToPair,
+    { from: FHIR_VERSION.STU3, source: 'reason', target: 'reasonCode' },
+    incomingReferralToBasedOn,
+  ],
+  CareTeam: [contextToEncounter, reasonToPair],
+  ChargeItem: [encounterToContext, definitionDropped],
+  ClinicalImpression: [contextToEncounter],
+  CommunicationRequest: [contextToEncounter, reasonToPair],
+  DeviceRequest: [contextToEncounter, reasonToPair, definitionDropped],
+  FamilyMemberHistory: [reasonToPair, definitionDropped],
+  GuidanceResponse: [contextToEncounter, reasonToPair],
+  ImagingStudy: [
+    contextToEncounter,
+    guardedReasonToPair,
+    {
+      from: FHIR_VERSION.STU3,
+      source: 'reason',
+      target: 'reasonCode',
+      // STU3 allowed one reason here where R4 takes a list.
+      convert: toList,
+    },
+  ],
+  Media: [contextToEncounter],
+  MedicationAdministration: [
+    reasonToPair,
+    definitionDropped,
+    encounterToContext,
+    medicationToChoice,
+  ],
+  MedicationDispense: [encounterToContext, medicationToChoice],
+  QuestionnaireResponse: [contextToEncounter],
+  RequestGroup: [contextToEncounter, definitionDropped],
+  RiskAssessment: [
+    contextToEncounter,
+    reasonToPair,
+    {
+      from: FHIR_VERSION.STU3,
+      source: 'comment',
+      target: 'note',
+      convert: toAnnotations,
+    },
+  ],
+  ServiceRequest: [reasonToPair],
+  SupplyRequest: [reasonToPair],
+  Task: [
+    contextToEncounter,
+    // Both sides are 0..1 here, unlike everywhere else this field appears,
+    // which is also why the R5 rewrite cannot apply to Task.
+    { from: FHIR_VERSION.STU3, source: 'reason', target: 'reasonCode' },
   ],
   DocumentReference: [
     {
@@ -272,6 +479,31 @@ export const VERSION_MIGRATION: MigrationTable = {
     },
   ],
 };
+
+/**
+ * R5 `reason` is a `CodeableReference` list — items carrying `concept`,
+ * `reference` or both. STU3's is a plain `CodeableConcept` list, whose items
+ * carry `coding` and `text`. Three resources have the field in both releases,
+ * so the R5 row has to recognise its own shape or it would claim STU3's and
+ * split it into nothing.
+ */
+const isCodeableReferenceList = (value: unknown): boolean =>
+  Array.isArray(value) &&
+  value.some(
+    (item) =>
+      typeof item === 'object' &&
+      item !== null &&
+      ('concept' in (item as Record<string, unknown>) ||
+        'reference' in (item as Record<string, unknown>)),
+  );
+
+/** R5 `Encounter.reason` is `[{ use, value }]`; STU3's is a CodeableConcept list. */
+const isEncounterReasonBackbone = (value: unknown): boolean =>
+  Array.isArray(value) &&
+  value.some(
+    (item) =>
+      typeof item === 'object' && item !== null && 'value' in (item as Record<string, unknown>),
+  );
 
 const isBackboneRequester = (value: unknown): boolean =>
   typeof value === 'object' &&

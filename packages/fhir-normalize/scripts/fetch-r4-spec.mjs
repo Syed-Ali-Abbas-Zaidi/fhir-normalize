@@ -5,7 +5,9 @@
  *   spec/r4-elements.json     every R4 element, with type and cardinality
  *   spec/r4-common.json       what Resource and DomainResource give everything
  *   spec/stu3-keys.json       the payload keys an STU3 resource can carry
+ *   spec/stu3-elements.json   every STU3 element, with type and cardinality
  *   spec/r5-keys.json         the same for R5
+ *   spec/r5-elements.json     every R5 element, with type and cardinality
  *
  * The R4 digest backs the shape tables; the STU3 and R5 key sets back the
  * cross-version migration table, which is only safe if each marker field
@@ -214,8 +216,23 @@ for (const [release, filename] of [
   ['STU3', 'stu3-keys.json'],
   ['R5', 'r5-keys.json'],
 ]) {
-  write(filename, keyDigest(concrete(definitionsFor(release))), (d) => {
+  // Downloaded once per release and used for every digest that release feeds.
+  const definitions = concrete(definitionsFor(release));
+
+  write(filename, keyDigest(definitions), (d) => {
     const keys = Object.values(d).reduce((total, k) => total + k.length, 0);
     return `${Object.keys(d).length} resources, ${keys} keys`;
+  });
+
+  /*
+   * Both releases get the full element digest as well as their payload keys.
+   * Cardinality and backbone children are what a migration has to be checked
+   * against and a key list cannot answer: whether `Encounter.admission` renames
+   * safely onto `hospitalization` depends on its children, and whether a
+   * rename puts a scalar into a list depends on both sides' cardinality.
+   */
+  write(`${release.toLowerCase()}-elements.json`, elementDigest(definitions), (d) => {
+    const elements = Object.values(d).reduce((total, f) => total + Object.keys(f).length, 0);
+    return `${Object.keys(d).length} resources, ${elements} elements`;
   });
 }
