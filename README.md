@@ -31,7 +31,7 @@ import type { Bundle, FhirResource } from 'fhir-normalize';
 
 ## Status
 
-`2.4.0`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform`, and the `Normalizer`
+`2.5.0`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform`, and the `Normalizer`
 methods — is stable under semver; anything breaking lands in a major.
 
 | Format | Status |
@@ -40,7 +40,7 @@ methods — is stable under semver; anything breaking lands in a major.
 | FHIR XML | ✅ Supported (opt in via `fhir-normalize/xml`) |
 | NDJSON (Bulk Data `$export`) | ✅ Supported |
 | Streaming NDJSON, for exports past the 512 MB string ceiling | ✅ Supported (via `fhir-normalize/stream`) |
-| Cross-version STU3 / R5 → R4 | ⚠️ Partial (14 curated differences — [see coverage](#older-and-newer-releases-land-on-r4)) |
+| Cross-version STU3 / R5 → R4 | ⚠️ Partial (39 curated differences — [see coverage](#older-and-newer-releases-land-on-r4)) |
 | Simplified view (choice types resolved) | ✅ Supported (every section, 147 types) |
 | Flat rows out, for CSV and tabular loads | ✅ Supported (via `fhir-normalize/simplified`) |
 | De-identification | ✅ Supported (structural; see the limits below) |
@@ -241,21 +241,36 @@ that matters most — that no unguarded marker is a key a genuine R4 payload cou
 marker-driven, so a marker that also exists in R4 would rewrite valid R4 data. `Encounter.class` and
 `MedicationRequest.requester` need `applies` guards for exactly that reason.
 
-**The table is curated, and it is small.** Measured against the definitions:
+**The table is curated, and the raw totals overstate the gap.** Measured against the definitions:
 
-| | Elements differing from R4 | Migrated | Passed through unchanged |
+| | Elements differing from R4 | Handled | Passed through unchanged |
 | --- | --- | --- | --- |
-| STU3 → R4 | 193 | 12 | 181, across 69 resources |
-| R5 → R4 | 601 | 2 | 599, across 102 resources |
+| STU3 → R4 | 193 | 35 | 158 |
+| R5 → R4 | 601 | 2 | 599 |
 
-It covers Observation, Condition, Procedure, Communication, CarePlan, MedicationRequest, Patient,
-Encounter and DocumentReference. Everything else is **passed through untouched** — so a bundle
-typed as R4 can still carry fields that are not R4, and today nothing in `meta.warnings` says so.
+The remainder is not 757 missing migrations. Most of the R5 column is elements R5 *invented* —
+`ObservationDefinition` alone gained 31 — which have no R4 counterpart to migrate to and never
+will. The tractable set is much smaller, and the table is aimed at it: across the sixteen resource
+types that dominate a real export, STU3 has 34 elements that differ from R4, and all 34 are handled.
 
-This is deliberate as far as it goes: a wrong migration corrupts clinical data silently, so
-differences that aren't certain are left alone rather than guessed at. But "left alone" currently
-also means "unreported". If that matters to you, `simplifyResource().unmapped` names every field
-that is not an element of the resource in R4 — see [the simplified view](#one-predictable-shape-per-resource).
+Two further rows are not counted above, because their fields exist in R4 as well and fire only
+behind an `applies` guard: `MedicationRequest.requester` and `Encounter.class`. The table has 39
+rows in total, across 14 resource types — Observation, Condition, AllergyIntolerance, Procedure,
+Immunization, DiagnosticReport, MedicationRequest, MedicationStatement, CarePlan, Communication,
+Encounter, DocumentReference, Coverage and Patient.
+
+Every figure in this section is asserted by a test against `VERSION_MIGRATION` and the spec
+digests, so it cannot drift from the table the way a hand-written count would.
+
+Handled means one of two things, and the warning says which. Most rows **migrate** the element.
+Ten **report and drop** it, because R4 has nowhere to put it and a guess written into clinical data
+is worse than a documented loss — STU3 `MedicationStatement.taken` and `Coverage.grouping` are of
+that kind.
+
+Everything outside the table is passed through untouched, so a bundle typed as R4 can still carry
+fields that are not R4. Two things will tell you which: `simplifyResource().unmapped` names them,
+and [`fhir-normalize/validate`](#checking-that-a-payload-really-is-r4) reports every one as a
+warning with its path.
 
 Inspect or extend the table via the exported `VERSION_MIGRATION`.
 

@@ -98,3 +98,116 @@ export const toMedicationChoice = (value: unknown): UnknownRecord => {
 /** STU3 `DocumentReference.class` is a single CodeableConcept; R4 `category` is a list. */
 export const toList = (value: unknown): Converted =>
   listOrNothing(Array.isArray(value) ? value : [value]);
+
+/**
+ * STU3 `Immunization.practitioner` is `[{ role, actor }]`; R4 `performer` is
+ * `[{ function, actor }]` — the same idea under a reserved word.
+ *
+ * An entry without an `actor` is dropped rather than carried: R4 makes
+ * `performer.actor` required, so a performer without one is not an R4
+ * performer.
+ */
+export const toPerformerList = (value: unknown): Converted => {
+  const items = Array.isArray(value) ? value : [value];
+
+  return listOrNothing(
+    items
+      .filter((item) => isRecord(item) && isRecord(item.actor))
+      .map((item) => {
+        const { role, actor } = item as UnknownRecord;
+        return isRecord(role) ? { function: role, actor } : { actor };
+      }),
+  );
+};
+
+/**
+ * R4 `positiveInt` is a 32-bit signed integer above zero, so it stops here and
+ * not at `Number.MAX_SAFE_INTEGER`.
+ */
+const POSITIVE_INT_MAX = 2_147_483_647;
+
+/**
+ * STU3 `Coverage.sequence` is a string; R4 `order` is a `positiveInt`.
+ *
+ * Anything outside 1 to {@link POSITIVE_INT_MAX} yields nothing — writing
+ * `"1a"`, `0` or `2147483648` into a positiveInt would produce a Bundle that
+ * claims to be R4 and is not.
+ */
+export const toPositiveInt = (value: unknown): Converted => {
+  const parsed = typeof value === 'number' ? value : Number(String(value).trim());
+
+  return Number.isInteger(parsed) && parsed > 0 && parsed <= POSITIVE_INT_MAX ? parsed : undefined;
+};
+
+/**
+ * STU3 recorded "this did not happen" in a boolean beside the status —
+ * `Procedure.notDone`, `Immunization.notGiven`. R4 removed both and added
+ * `not-done` to the status value set instead.
+ *
+ * A dropped field here would be the most dangerous loss in this table: a
+ * payload saying a vaccine was *not* given would arrive in R4 looking like one
+ * saying it was. So `true` overwrites the status, which is the point — the
+ * STU3 status alongside `notGiven: true` cannot have said `not-done`, because
+ * that code did not exist yet.
+ *
+ * `false` adds nothing and removes the field, which is the whole of its
+ * meaning in R4: not-done is the presence of a status, not the absence of one.
+ */
+export const toNotDoneStatus = (value: unknown): UnknownRecord =>
+  value === true ? { status: 'not-done' } : {};
+
+/**
+ * STU3 `Immunization.explanation` is `{ reason, reasonNotGiven }`. R4 splits
+ * the pair by meaning: why it happened is `reasonCode`, why it did not is
+ * `statusReason`.
+ *
+ * `statusReason` is `0..1` in R4 where STU3 allowed a list, so only the first
+ * survives.
+ */
+export const toImmunizationExplanation = (value: unknown): UnknownRecord => {
+  if (!isRecord(value)) return {};
+
+  const result: UnknownRecord = {};
+
+  const reason = Array.isArray(value.reason) ? value.reason.filter(isRecord) : [];
+  if (reason.length > 0) result.reasonCode = reason;
+
+  const notGiven = Array.isArray(value.reasonNotGiven) ? value.reasonNotGiven.filter(isRecord) : [];
+  const [first] = notGiven;
+  if (first !== undefined) result.statusReason = first;
+
+  return result;
+};
+
+/**
+ * STU3 `Immunization.vaccinationProtocol` becomes R4 `protocolApplied`, which
+ * keeps a subset under different names: `doseSequence` is `doseNumber[x]`, and
+ * `description`, `doseStatus` and `doseStatusReason` have no R4 home.
+ *
+ * R4 makes `doseNumber[x]` **required**, so an entry without a usable
+ * `doseSequence` is dropped instead of being emitted as an invalid element —
+ * the same rule the rest of this file follows.
+ */
+export const toProtocolApplied = (value: unknown): Converted => {
+  const items = Array.isArray(value) ? value : [value];
+
+  return listOrNothing(
+    items.filter(isRecord).flatMap((item) => {
+      const doseNumber = toPositiveInt(item.doseSequence);
+      if (doseNumber === undefined) return [];
+
+      const applied: UnknownRecord = { doseNumberPositiveInt: doseNumber };
+      if (typeof item.series === 'string') applied.series = item.series;
+      if (isRecord(item.authority)) applied.authority = item.authority;
+      if (Array.isArray(item.targetDisease)) {
+        const diseases = item.targetDisease.filter(isRecord);
+        if (diseases.length > 0) applied.targetDisease = diseases;
+      }
+
+      const seriesDoses = toPositiveInt(item.seriesDoses);
+      if (seriesDoses !== undefined) applied.seriesDosesPositiveInt = seriesDoses;
+
+      return [applied];
+    }),
+  );
+};

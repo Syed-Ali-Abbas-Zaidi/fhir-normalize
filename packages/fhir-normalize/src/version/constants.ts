@@ -1,8 +1,13 @@
 import {
   toAnnotations,
   toFirstCoding,
+  toImmunizationExplanation,
   toList,
   toMedicationChoice,
+  toNotDoneStatus,
+  toPerformerList,
+  toPositiveInt,
+  toProtocolApplied,
   toReferenceList,
   toRequesterReference,
 } from './converters';
@@ -35,6 +40,31 @@ const contextToEncounter: FieldMigration = {
 };
 
 /**
+ * STU3 recorded when a clinician asserted something in `assertedDate`; R4 calls
+ * the same instant `recordedDate`. Identical on Condition and
+ * AllergyIntolerance.
+ */
+/**
+ * STU3 `definition` is a `Reference`; R4 replaced it with
+ * `instantiatesCanonical` (a canonical URL) and `instantiatesUri`. A relative
+ * reference like `ActivityDefinition/x` is not a canonical URL, and inventing
+ * one would be a guess written into clinical data, so this is reported rather
+ * than converted.
+ */
+const definitionDropped: FieldMigration = {
+  from: FHIR_VERSION.STU3,
+  source: 'definition',
+  reason:
+    'R4 replaced it with instantiatesCanonical, which needs a canonical URL rather than a reference.',
+};
+
+const assertedToRecorded: FieldMigration = {
+  from: FHIR_VERSION.STU3,
+  source: 'assertedDate',
+  target: 'recordedDate',
+};
+
+/**
  * Curated, not exhaustive.
  *
  * Every row is a documented difference between a release and R4. It is
@@ -53,6 +83,11 @@ export const VERSION_MIGRATION: MigrationTable = {
     },
     {
       from: FHIR_VERSION.STU3,
+      source: 'valueAttachment',
+      reason: 'R4 removed Attachment from Observation.value[x].',
+    },
+    {
+      from: FHIR_VERSION.STU3,
       source: 'related',
       target: 'hasMember',
       convert: toReferenceList,
@@ -60,12 +95,114 @@ export const VERSION_MIGRATION: MigrationTable = {
         'R4 splits STU3 "related" into "hasMember" and "derivedFrom"; the relationship type was dropped and every target was mapped to "hasMember".',
     },
   ],
-  Condition: [contextToEncounter],
-  Procedure: [contextToEncounter],
+  Condition: [
+    contextToEncounter,
+    assertedToRecorded,
+    {
+      from: FHIR_VERSION.STU3,
+      source: 'abatementBoolean',
+      reason:
+        'R4 removed boolean from abatement[x]; there is no element to carry "resolved" alone.',
+    },
+  ],
+  AllergyIntolerance: [assertedToRecorded],
+  Procedure: [
+    contextToEncounter,
+    {
+      from: FHIR_VERSION.STU3,
+      source: 'notDoneReason',
+      target: 'statusReason',
+    },
+    {
+      from: FHIR_VERSION.STU3,
+      source: 'notDone',
+      rewrite: toNotDoneStatus,
+      reason: 'R4 removed the boolean and added "not-done" to the status value set.',
+    },
+    definitionDropped,
+  ],
+  Immunization: [
+    {
+      from: FHIR_VERSION.STU3,
+      source: 'date',
+      target: 'occurrenceDateTime',
+    },
+    {
+      from: FHIR_VERSION.STU3,
+      source: 'practitioner',
+      target: 'performer',
+      convert: toPerformerList,
+      reason: 'R4 renamed the backbone to "performer" and its "role" to "function".',
+    },
+    {
+      from: FHIR_VERSION.STU3,
+      source: 'notGiven',
+      rewrite: toNotDoneStatus,
+      reason: 'R4 removed the boolean and added "not-done" to the status value set.',
+    },
+    {
+      from: FHIR_VERSION.STU3,
+      source: 'explanation',
+      rewrite: toImmunizationExplanation,
+      reason:
+        'R4 splits the pair by meaning: "reason" is reasonCode, "reasonNotGiven" is statusReason, which is 0..1 so only the first survives.',
+    },
+    {
+      from: FHIR_VERSION.STU3,
+      source: 'vaccinationProtocol',
+      target: 'protocolApplied',
+      convert: toProtocolApplied,
+      reason:
+        'R4 keeps series, authority, targetDisease and the dose numbers; description, doseStatus and doseStatusReason have no R4 home.',
+    },
+  ],
+  DiagnosticReport: [
+    contextToEncounter,
+    {
+      from: FHIR_VERSION.STU3,
+      source: 'codedDiagnosis',
+      target: 'conclusionCode',
+    },
+    {
+      from: FHIR_VERSION.STU3,
+      source: 'image',
+      target: 'media',
+    },
+  ],
+  MedicationStatement: [
+    // No `context` row: R4 MedicationStatement kept `context` and has no
+    // `encounter`, so the rename that applies to its neighbours does not apply
+    // here. Checked against the digest rather than assumed from the pattern.
+    {
+      from: FHIR_VERSION.STU3,
+      source: 'taken',
+      reason: 'R4 removed the element; adherence was not modelled again until R5.',
+    },
+    {
+      from: FHIR_VERSION.STU3,
+      source: 'reasonNotTaken',
+      reason: 'R4 removed the element along with "taken", which was its only trigger.',
+    },
+  ],
+  Coverage: [
+    {
+      from: FHIR_VERSION.STU3,
+      source: 'sequence',
+      target: 'order',
+      convert: toPositiveInt,
+      reason: 'R4 types the element as positiveInt where STU3 used a string.',
+    },
+    {
+      from: FHIR_VERSION.STU3,
+      source: 'grouping',
+      reason: 'R4 replaced the backbone with the "class" list, which names each value differently.',
+    },
+  ],
   Communication: [contextToEncounter],
-  CarePlan: [contextToEncounter],
+  CarePlan: [contextToEncounter, definitionDropped],
   MedicationRequest: [
     contextToEncounter,
+    definitionDropped,
     {
       from: FHIR_VERSION.STU3,
       source: 'requester',
@@ -95,6 +232,11 @@ export const VERSION_MIGRATION: MigrationTable = {
       target: 'basedOn',
     },
     {
+      from: FHIR_VERSION.STU3,
+      source: 'reason',
+      target: 'reasonCode',
+    },
+    {
       from: FHIR_VERSION.R5,
       source: 'actualPeriod',
       target: 'period',
@@ -115,6 +257,12 @@ export const VERSION_MIGRATION: MigrationTable = {
       from: FHIR_VERSION.STU3,
       source: 'indexed',
       target: 'date',
+    },
+    {
+      from: FHIR_VERSION.STU3,
+      source: 'created',
+      reason:
+        'R4 kept one timestamp, and "indexed" is the one it maps from; a second would overwrite it.',
     },
     {
       from: FHIR_VERSION.STU3,
