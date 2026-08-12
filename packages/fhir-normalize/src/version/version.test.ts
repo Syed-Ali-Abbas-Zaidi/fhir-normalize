@@ -337,6 +337,189 @@ describe('R5 -> R4', () => {
   });
 });
 
+describe('R5 -> R4, the widened rows', () => {
+  it('renames every occurrence[x] R4 has a performed[x] for', () => {
+    for (const [source, target, value] of [
+      ['occurrenceDateTime', 'performedDateTime', '2026-01-02'],
+      ['occurrencePeriod', 'performedPeriod', { start: '2026-01-02' }],
+      ['occurrenceString', 'performedString', 'last winter'],
+      ['occurrenceAge', 'performedAge', { value: 40, unit: 'a' }],
+      ['occurrenceRange', 'performedRange', { low: { value: 1 }, high: { value: 2 } }],
+    ] as const) {
+      const { resource } = migrate({ resourceType: 'Procedure', id: 'p', [source]: value });
+
+      expect(resource[target]).toEqual(value);
+      expect(resource).not.toHaveProperty(source);
+    }
+  });
+
+  it('leaves occurrenceTiming alone, because R4 has no performedTiming', () => {
+    // R4's performed[x] is dateTime | Period | string | Age | Range. Renaming
+    // this would target an element that does not exist.
+    const { resource } = migrate({
+      resourceType: 'Procedure',
+      id: 'p',
+      occurrenceTiming: { event: ['2026-01-02'] },
+    });
+
+    expect(resource.occurrenceTiming).toEqual({ event: ['2026-01-02'] });
+    expect(resource).not.toHaveProperty('performedTiming');
+  });
+
+  it('splits the R5 reason list back into reasonCode and reasonReference', () => {
+    const { resource } = migrate({
+      resourceType: 'Procedure',
+      id: 'p',
+      reason: [
+        { concept: { text: 'infection' } },
+        { reference: { reference: 'Condition/c1' } },
+        { concept: { text: 'both' }, reference: { reference: 'Condition/c2' } },
+      ],
+    });
+
+    expect(resource.reasonCode).toEqual([{ text: 'infection' }, { text: 'both' }]);
+    expect(resource.reasonReference).toEqual([
+      { reference: 'Condition/c1' },
+      { reference: 'Condition/c2' },
+    ]);
+    expect(resource).not.toHaveProperty('reason');
+  });
+
+  it('writes neither half when the reason list carries nothing usable', () => {
+    // Two empty arrays are not valid FHIR JSON; nothing is the right answer.
+    const { resource, warnings } = migrate({
+      resourceType: 'Procedure',
+      id: 'p',
+      reason: [{ unexpected: true }],
+    });
+
+    expect(resource).not.toHaveProperty('reasonCode');
+    expect(resource).not.toHaveProperty('reasonReference');
+    expect(warnings.join()).toContain('reason');
+  });
+
+  it('applies the reason split to every resource that gained it', () => {
+    for (const resourceType of [
+      'Procedure',
+      'Immunization',
+      'MedicationRequest',
+      'MedicationStatement',
+    ]) {
+      const { resource } = migrate({
+        resourceType,
+        id: 'x',
+        reason: [{ concept: { text: 'why' } }],
+      });
+
+      expect(resource.reasonCode).toEqual([{ text: 'why' }]);
+    }
+  });
+
+  it('unwraps the Encounter reason backbone before splitting it', () => {
+    const { resource } = migrate({
+      resourceType: 'Encounter',
+      id: 'e',
+      reason: [{ use: [{ text: 'AD' }], value: [{ concept: { text: 'chest pain' } }] }],
+    });
+
+    expect(resource.reasonCode).toEqual([{ text: 'chest pain' }]);
+  });
+
+  /*
+   * Two releases put different things in `Encounter.reason` — STU3 a
+   * CodeableConcept list, R5 a backbone carrying `use`. Both had a row, and
+   * unguarded the first one claimed the field for both releases: an R5 payload
+   * came out with the raw backbone sitting in `reasonCode`.
+   */
+  it('tells the two Encounter.reason shapes apart', () => {
+    const fromR5 = migrate({
+      resourceType: 'Encounter',
+      id: 'e',
+      reason: [{ value: [{ concept: { text: 'R5 shape' } }] }],
+    });
+    const fromStu3 = migrate({
+      resourceType: 'Encounter',
+      id: 'e',
+      reason: [{ text: 'STU3 shape' }],
+    });
+
+    expect(fromR5.resource.reasonCode).toEqual([{ text: 'R5 shape' }]);
+    expect(fromStu3.resource.reasonCode).toEqual([{ text: 'STU3 shape' }]);
+  });
+
+  it('renames the R5 fields that map straight across', () => {
+    const cases: [string, string, string, unknown][] = [
+      ['Encounter', 'actualPeriod', 'period', { start: '2026-01-01' }],
+      ['Encounter', 'admission', 'hospitalization', { admitSource: { text: 'GP' } }],
+      ['MedicationStatement', 'encounter', 'context', { reference: 'Encounter/e1' }],
+      ['Location', 'form', 'physicalType', { text: 'room' }],
+      ['DiagnosticReport', 'study', 'imagingStudy', [{ reference: 'ImagingStudy/s1' }]],
+      ['MedicationRequest', 'reported', 'reportedBoolean', true],
+    ];
+
+    for (const [resourceType, source, target, value] of cases) {
+      const { resource } = migrate({ resourceType, id: 'x', [source]: value });
+
+      expect(resource[target]).toEqual(value);
+      expect(resource).not.toHaveProperty(source);
+    }
+  });
+
+  it('wraps Coverage.insurer in the list R4 requires', () => {
+    // R5 insurer is one reference; R4 payor is a required list.
+    const { resource } = migrate({
+      resourceType: 'Coverage',
+      id: 'c',
+      insurer: { reference: 'Organization/o1' },
+    });
+
+    expect(resource.payor).toEqual([{ reference: 'Organization/o1' }]);
+  });
+
+  it('keeps only the concept half of Immunization.informationSource', () => {
+    const asConcept = migrate({
+      resourceType: 'Immunization',
+      id: 'i',
+      informationSource: { concept: { text: 'parent' } },
+    });
+    const asReference = migrate({
+      resourceType: 'Immunization',
+      id: 'i',
+      informationSource: { reference: { reference: 'Practitioner/p1' } },
+    });
+
+    expect(asConcept.resource.reportOrigin).toEqual({ text: 'parent' });
+    // R4 reportOrigin is a CodeableConcept, so a reference cannot cross.
+    expect(asReference.resource).not.toHaveProperty('reportOrigin');
+    expect(asReference.warnings.join()).toContain('could not be expressed');
+  });
+
+  it('reuses the medication[x] split for MedicationStatement', () => {
+    const { resource } = migrate({
+      resourceType: 'MedicationStatement',
+      id: 'm',
+      medication: { concept: { text: 'aspirin' } },
+    });
+
+    expect(resource.medicationCodeableConcept).toEqual({ text: 'aspirin' });
+  });
+
+  it('drops a value[x] type R4 forbids, rather than passing it through', () => {
+    // The rest of the R5 gap passes through for `validate` to report. A choice
+    // carrying a type R4 forbids is different: it makes the resource wrong.
+    for (const source of ['valueReference', 'valueAttachment']) {
+      const { resource, warnings } = migrate({
+        resourceType: 'Observation',
+        id: 'o',
+        [source]: { reference: 'Media/m1' },
+      });
+
+      expect(resource).not.toHaveProperty(source);
+      expect(warnings.join()).toContain(source);
+    }
+  });
+});
+
 describe('R4 input is left alone', () => {
   it.each([
     ['an Encounter with a Coding class', r4Encounter],

@@ -33,6 +33,7 @@ So the repository vendors digests of the published definitions and checks agains
 | `packages/fhir-normalize/spec/r4-elements.json` | Every R4 element, its types, cardinality, and whether it is required | `pnpm --filter fhir-normalize spec:fetch` |
 | `packages/fhir-normalize/spec/stu3-keys.json` | The payload keys an STU3 resource can carry | same script |
 | `packages/fhir-normalize/spec/r5-keys.json` | The same for R5 | same script |
+| `packages/fhir-normalize/spec/r5-elements.json` | Every R5 element, with cardinality and backbone children | same script |
 
 Practically, this means:
 

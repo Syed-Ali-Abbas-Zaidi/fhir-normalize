@@ -5,6 +5,50 @@ All notable changes to `fhir-normalize`.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.7.0] — 2026-08-12
+
+### Added
+
+- **The R5 → R4 direction went from 2 rows to 21**, aimed at the resource types a real export
+  carries. On an R5 bundle covering the migrated elements, `validateBundle` went from reporting
+  **14 elements R4 does not define to one** — `Coverage.kind`, an R5 invention with no R4
+  counterpart, deliberately passed through.
+
+  | Resource | Now handled |
+  | --- | --- |
+  | `Procedure` | `occurrence[x]` → `performed[x]` for dateTime, Period, string, Age and Range |
+  | `Encounter` | `actualPeriod` → `period`, `admission` → `hospitalization`, `reason` split |
+  | `MedicationStatement` | `encounter` → `context`, `medication` → `medication[x]`, `reason` split |
+  | `MedicationRequest` | `reported` → `reportedBoolean`, `reason` split |
+  | `Immunization` | `informationSource` → `reportOrigin`, `reason` split |
+  | `DiagnosticReport` | `study` → `imagingStudy` |
+  | `Coverage` | `insurer` → `payor`, wrapped in the list R4 requires |
+  | `Location` | `form` → `physicalType` |
+  | `Observation` | `valueReference` and `valueAttachment` reported |
+
+  R5 replaced `reasonCode` and `reasonReference` with one `reason` list of `CodeableReference`;
+  splitting it back is one converter shared by four resources. `Encounter` needed its own, because
+  R5 wraps that list in a backbone carrying a `use` that has no R4 home.
+
+  Elements R5 invented and R4 never had — `Encounter.virtualService`,
+  `MedicationStatement.adherence`, `Observation.triggeredBy` — pass through rather than being
+  deleted, and `fhir-normalize/validate` names each one with its path. `Observation.valueReference`
+  and `valueAttachment` are the exception: a choice element carrying a type R4 forbids makes the
+  resource wrong rather than merely extended, so those are dropped and reported.
+
+- **`spec/r5-elements.json`.** The R5 digest held payload keys only, which cannot say whether
+  renaming an R5 backbone onto an R4 one carries children R4 does not define. It can now:
+  `Encounter.admission` → `hospitalization` was confirmed safe because R5's children are a subset
+  of R4's, rather than assumed to be.
+
+### Fixed
+
+- **Two rows were competing for `Encounter.reason`.** STU3 has a `CodeableConcept` list there and
+  R5 a backbone, and the stage applies rows in order, so the first claimed the field for both
+  releases — an R5 payload came out with the raw backbone sitting in `reasonCode`. The R5 row is
+  now guarded on the shape it recognises. The conformance suite gained a check for this class:
+  two rows may share a source only if all but one can tell their own shape apart.
+
 ## [2.6.0] — 2026-08-12
 
 ### Added

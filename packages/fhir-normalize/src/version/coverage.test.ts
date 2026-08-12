@@ -139,10 +139,12 @@ describe('the README describes the table it actually ships', () => {
     expect(README).toContain(`all ${cohort.length} are handled`);
   });
 
-  it('counts the guarded rows the coverage table leaves out', () => {
+  it('names every guarded row the coverage table leaves out', () => {
+    // Derived rather than pinned to a count: a new guarded row has to be named
+    // in the prose, which is the thing that would otherwise go stale.
     const guarded = rows.filter((row) => row.applies !== undefined);
 
-    expect(guarded).toHaveLength(2);
+    expect(guarded.length).toBeGreaterThan(0);
     for (const row of guarded) expect(README).toContain(`${row.resourceType}.${row.source}`);
   });
 });

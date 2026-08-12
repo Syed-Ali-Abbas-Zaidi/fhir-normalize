@@ -31,7 +31,7 @@ import type { Bundle, FhirResource } from 'fhir-normalize';
 
 ## Status
 
-`2.6.0`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform`, and the `Normalizer`
+`2.7.0`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform`, and the `Normalizer`
 methods — is stable under semver; anything breaking lands in a major.
 
 | Format | Status |
@@ -40,7 +40,7 @@ methods — is stable under semver; anything breaking lands in a major.
 | FHIR XML | ✅ Supported (opt in via `fhir-normalize/xml`) |
 | NDJSON (Bulk Data `$export`) | ✅ Supported |
 | Streaming NDJSON, for exports past the 512 MB string ceiling | ✅ Supported (via `fhir-normalize/stream`) |
-| Cross-version STU3 / R5 → R4 | ⚠️ Partial (39 curated differences — [see coverage](#older-and-newer-releases-land-on-r4)) |
+| Cross-version STU3 / R5 → R4 | ⚠️ Partial (58 curated differences — [see coverage](#older-and-newer-releases-land-on-r4)) |
 | Simplified view (choice types resolved) | ✅ Supported (every section, 147 types) |
 | Flat rows out, for CSV and tabular loads | ✅ Supported (via `fhir-normalize/simplified`) |
 | De-identification | ✅ Supported (structural; see the limits below) |
@@ -94,15 +94,16 @@ The 147 resource shape tables are the bulk of the library, and they only ship if
 
 | What you import | Bundled |
 | --- | --- |
-| parsing only | **~16 KB** (~7 KB gzipped) |
-| parsing + the simplified view | ~82 KB (~23 KB gzipped) |
-| parsing + XML | ~103 KB (~34 KB gzipped) |
+| parsing only | **~18 KB** (~7 KB gzipped) |
+| parsing + the simplified view | ~83 KB (~23 KB gzipped) |
+| parsing + XML | ~105 KB (~34 KB gzipped) |
 | validation, on its own | ~80 KB (~15 KB gzipped) |
-| parsing + streaming | ~18 KB (~7 KB gzipped) |
-| parsing + HL7 v2 | ~25 KB (~10 KB gzipped) |
+| parsing + streaming | ~20 KB (~8 KB gzipped) |
+| parsing + HL7 v2 | ~28 KB (~11 KB gzipped) |
 
-Parsing-only grew from ~13 KB in 2.4.0: the cross-version migration table widened in 2.5.0, and
-`createDefaultNormalizer` registers that stage.
+Parsing-only was ~13 KB in 2.4.0. `createDefaultNormalizer` registers the cross-version stage, so
+every widening of the migration table shows up here: ~16 KB in 2.5.0 when STU3 was covered, ~18 KB
+in 2.7.0 when R5 was. Gzipped it has barely moved, because the table is repetitive.
 
 These are what a bundler actually emits, `fast-xml-parser` included — not library code with the
 dependency excluded.
@@ -293,18 +294,19 @@ marker-driven, so a marker that also exists in R4 would rewrite valid R4 data. `
 | | Elements differing from R4 | Handled | Passed through unchanged |
 | --- | --- | --- | --- |
 | STU3 → R4 | 193 | 35 | 158 |
-| R5 → R4 | 601 | 2 | 599 |
+| R5 → R4 | 601 | 21 | 580 |
 
-The remainder is not 757 missing migrations. Most of the R5 column is elements R5 *invented* —
+The remainder is not 738 missing migrations. Most of the R5 column is elements R5 *invented* —
 `ObservationDefinition` alone gained 31 — which have no R4 counterpart to migrate to and never
 will. The tractable set is much smaller, and the table is aimed at it: across the sixteen resource
-types that dominate a real export, STU3 has 34 elements that differ from R4, and all 34 are handled.
+types that dominate a real export, STU3 has 34 elements that differ from R4 and all 34 are handled,
+and R5 has 78 of which 21 are.
 
-Two further rows are not counted above, because their fields exist in R4 as well and fire only
-behind an `applies` guard: `MedicationRequest.requester` and `Encounter.class`. The table has 39
-rows in total, across 14 resource types — Observation, Condition, AllergyIntolerance, Procedure,
-Immunization, DiagnosticReport, MedicationRequest, MedicationStatement, CarePlan, Communication,
-Encounter, DocumentReference, Coverage and Patient.
+Three further rows are not counted above, because their fields exist in R4 as well and fire only
+behind an `applies` guard: `MedicationRequest.requester`, `Encounter.reason` and `Encounter.class`.
+The table has 58 rows in total, across 15 resource types — Observation, Condition,
+AllergyIntolerance, Procedure, Immunization, DiagnosticReport, MedicationStatement, Location,
+Coverage, Communication, CarePlan, MedicationRequest, Patient, Encounter and DocumentReference.
 
 Every figure in this section is asserted by a test against `VERSION_MIGRATION` and the spec
 digests, so it cannot drift from the table the way a hand-written count would.

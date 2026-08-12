@@ -90,6 +90,37 @@ describe('the migration table matches the releases it claims', () => {
     expect(ambiguous).toEqual([]);
   });
 
+  /*
+   * Added after a real collision. `Encounter.reason` exists in STU3 as a
+   * CodeableConcept list and in R5 as a backbone, so the table had two rows on
+   * the same field. Migration is marker-driven and the stage reduces in order,
+   * so the first row renamed the other release's shape wholesale — and both
+   * rows passed every other check here, because each is valid on its own.
+   *
+   * Two rows may share a source only if all but one can tell their own shape
+   * apart with an `applies` guard.
+   */
+  it('never leaves two rows competing for the same field unguarded', () => {
+    const bySource = new Map<string, typeof rows>();
+    for (const row of rows) {
+      const key = `${row.resourceType}.${row.migration.source}`;
+      bySource.set(key, [...(bySource.get(key) ?? []), row]);
+    }
+
+    const ambiguous = [...bySource]
+      .filter(([, group]) => group.length > 1)
+      .filter(
+        ([, group]) => group.filter(({ migration }) => migration.applies === undefined).length > 1,
+      )
+      .map(
+        ([key, group]) =>
+          `${key} has ${group.length} rows and ${group.filter(({ migration }) => migration.applies === undefined).length} without an \`applies\` guard — ` +
+          'whichever runs first claims the field for every release.',
+      );
+
+    expect(ambiguous).toEqual([]);
+  });
+
   it('renames onto fields that exist in R4', () => {
     const missing = rows
       .filter(({ migration }) => migration.target !== undefined)

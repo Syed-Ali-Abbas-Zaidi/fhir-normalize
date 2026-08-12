@@ -214,8 +214,25 @@ for (const [release, filename] of [
   ['STU3', 'stu3-keys.json'],
   ['R5', 'r5-keys.json'],
 ]) {
-  write(filename, keyDigest(concrete(definitionsFor(release))), (d) => {
+  // Downloaded once per release and used for every digest that release feeds.
+  const definitions = concrete(definitionsFor(release));
+
+  write(filename, keyDigest(definitions), (d) => {
     const keys = Object.values(d).reduce((total, k) => total + k.length, 0);
     return `${Object.keys(d).length} resources, ${keys} keys`;
   });
+
+  /*
+   * R5 gets the full element digest as well, not only its payload keys.
+   * Cardinality and backbone children are what a migration onto an R4 backbone
+   * has to be checked against: `Encounter.admission` is a rename of
+   * `hospitalization`, and whether it is a *safe* rename depends on whether its
+   * children are elements R4 also defines. The key list cannot answer that.
+   */
+  if (release === 'R5') {
+    write('r5-elements.json', elementDigest(definitions), (d) => {
+      const elements = Object.values(d).reduce((total, f) => total + Object.keys(f).length, 0);
+      return `${Object.keys(d).length} resources, ${elements} elements`;
+    });
+  }
 }
