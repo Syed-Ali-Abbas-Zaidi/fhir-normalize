@@ -31,7 +31,7 @@ import type { Bundle, FhirResource } from 'fhir-normalize';
 
 ## Status
 
-`2.5.0`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform`, and the `Normalizer`
+`2.6.0`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform`, and the `Normalizer`
 methods — is stable under semver; anything breaking lands in a major.
 
 | Format | Status |
@@ -45,7 +45,8 @@ methods — is stable under semver; anything breaking lands in a major.
 | Flat rows out, for CSV and tabular loads | ✅ Supported (via `fhir-normalize/simplified`) |
 | De-identification | ✅ Supported (structural; see the limits below) |
 | R4 conformance checking | ✅ Supported (structural; via `fhir-normalize/validate`) |
-| HL7 v2, C-CDA, CSV **in** | 📋 Later |
+| HL7 v2 **in** (ADT / ORU segments) | ✅ Supported (opt in via `fhir-normalize/hl7v2`) |
+| C-CDA, CSV **in** | 📋 Later |
 
 ## Install
 
@@ -71,7 +72,7 @@ Ships ESM + CJS with generated type declarations. No runtime configuration requi
 
 ### Import paths and bundle size
 
-The package has six entry points. The root re-exports the JSON-family parsers and the simplified
+The package has seven entry points. The root re-exports the JSON-family parsers and the simplified
 and de-identify layers, so a single import still works; the subpaths let a bundler leave out what
 you do not use.
 
@@ -82,6 +83,7 @@ import { deIdentifyBundle } from 'fhir-normalize/deidentify';
 import { fhirXmlParser } from 'fhir-normalize/xml';                    // opt in
 import { validateBundle } from 'fhir-normalize/validate';              // opt in
 import { parseNdjsonStream } from 'fhir-normalize/stream';             // opt in
+import { hl7v2Parser } from 'fhir-normalize/hl7v2';                    // opt in
 ```
 
 `toRows` is the one export the root does not re-export: it serves the `/simplified` subpath only,
@@ -92,11 +94,15 @@ The 147 resource shape tables are the bulk of the library, and they only ship if
 
 | What you import | Bundled |
 | --- | --- |
-| parsing only | **~13 KB** |
-| parsing + the simplified view | ~78 KB |
-| parsing + XML | ~100 KB (~33 KB gzipped) |
+| parsing only | **~16 KB** (~7 KB gzipped) |
+| parsing + the simplified view | ~82 KB (~23 KB gzipped) |
+| parsing + XML | ~103 KB (~34 KB gzipped) |
 | validation, on its own | ~80 KB (~15 KB gzipped) |
-| parsing + streaming | ~15 KB (~6 KB gzipped) |
+| parsing + streaming | ~18 KB (~7 KB gzipped) |
+| parsing + HL7 v2 | ~25 KB (~10 KB gzipped) |
+
+Parsing-only grew from ~13 KB in 2.4.0: the cross-version migration table widened in 2.5.0, and
+`createDefaultNormalizer` registers that stage.
 
 These are what a bundler actually emits, `fast-xml-parser` included — not library code with the
 dependency excluded.
@@ -216,6 +222,47 @@ the way `parse()` does.
 > [!NOTE]
 > **NDJSON only.** A single enormous JSON Bundle or XML document needs an incremental parser, which
 > is a different piece of work. For those, `parse()` and the 512 MB ceiling still apply.
+
+### HL7 v2 in, FHIR out
+
+Most hospital interfaces still speak HL7 v2. The adapter is opt in, the way XML is:
+
+```ts
+import { createDefaultNormalizer } from 'fhir-normalize';
+import { hl7v2Parser } from 'fhir-normalize/hl7v2';
+
+const normalizer = createDefaultNormalizer().register(hl7v2Parser);
+const { bundle, meta } = normalizer.parse(adtMessage);
+// -> meta.sourceFormat: 'hl7v2'
+// -> Patient, Encounter, AllergyIntolerance, Condition, Observation
+```
+
+| Segment | Becomes |
+| --- | --- |
+| `PID` | `Patient` — identifiers, names, birth date, gender, address, telecom, marital status, deceased |
+| `PV1` | `Encounter` — class, identifier, type, period |
+| `OBX` | `Observation` — code, status, and the `value[x]` that `OBX-2` asks for |
+| `AL1` | `AllergyIntolerance` — code, criticality, reaction |
+| `DG1` | `Condition` — code, recorded date |
+
+Everything else is skipped and **named in `meta.warnings`**, so a message full of `NK1` and `IN1`
+tells you what it did not carry across rather than losing it quietly. Resources are linked: the
+first `PID` becomes the subject of every other resource in the message.
+
+> [!NOTE]
+> **This is a curated subset, not the v2-to-FHIR implementation guide.** That guide is a
+> specification in its own right. This covers the segments carrying the substance of an ADT or ORU
+> message, which is what most interfaces send, and says plainly when it skips something.
+
+Two details are worth knowing, because both are places a v2 parser usually goes wrong:
+
+- **Delimiters are read from the message.** `MSH-1` and `MSH-2` declare them, and a sender may
+  choose something other than `|^~\&`. Escape sequences are decoded *after* splitting, never
+  before — `\S\` is how a message carries a literal component separator, so decoding it first
+  invents the boundary it exists to avoid.
+- **A timestamp with no UTC offset loses its time.** R4's `dateTime` requires a timezone once hours
+  are present, so `20260812093000` cannot become `2026-08-12T09:30:00` — that is not R4. The date is
+  kept and the loss reported, because assuming UTC would be a twelve-hour error for half the world.
 
 ### Older and newer releases land on R4
 

@@ -5,6 +5,45 @@ All notable changes to `fhir-normalize`.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.6.0] — 2026-08-12
+
+### Added
+
+- **`fhir-normalize/hl7v2` — HL7 v2 messages in, a FHIR R4 Bundle out.** The format most hospital
+  interfaces still speak. Opt in and register it, the way XML works:
+
+  ```ts
+  import { createDefaultNormalizer } from 'fhir-normalize';
+  import { hl7v2Parser } from 'fhir-normalize/hl7v2';
+
+  const { bundle, meta } = createDefaultNormalizer().register(hl7v2Parser).parse(adtMessage);
+  ```
+
+  | Segment | Becomes |
+  | --- | --- |
+  | `PID` | `Patient` |
+  | `PV1` | `Encounter` |
+  | `OBX` | `Observation`, with the `value[x]` that `OBX-2` asks for |
+  | `AL1` | `AllergyIntolerance` |
+  | `DG1` | `Condition` |
+
+  A curated subset, not the v2-to-FHIR implementation guide. Every other segment is skipped and
+  named in `meta.warnings`, so a message is never quietly half-read. The first `PID` becomes the
+  subject of every other resource in the message.
+
+  Where v2 says something R4 cannot express, the element is left out and the loss reported rather
+  than guessed at. A timestamp with no UTC offset is the sharpest case: R4's `dateTime` requires a
+  timezone once hours are present, so the date is kept and the time dropped — assuming UTC would be
+  a twelve-hour error for half the world.
+
+  Adds ~9 KB to a bundle that already parses, and nothing to one that does not import it.
+
+### Changed
+
+- **The bundle-size table was re-measured.** Parsing-only is ~16 KB, not the ~13 KB the README
+  claimed: widening the migration table in 2.5.0 grew it, and `createDefaultNormalizer` registers
+  that stage. The figure should have moved in that release and did not.
+
 ## [2.5.0] — 2026-08-12
 
 ### Added
