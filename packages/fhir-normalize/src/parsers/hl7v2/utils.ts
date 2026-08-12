@@ -1,7 +1,6 @@
 import type { FhirResource } from 'fhir/r4';
 import { createCollectionBundle, ParseError, SOURCE_FORMAT, type WarningLog } from '../../core';
 import { HEADER_SEGMENT, HL7V2_ERROR, HL7V2_WARNING, SEGMENT } from './constants';
-import { decodeMessage } from './lexer';
 import { SEGMENT_MAPPER } from './segments';
 import type { Message } from './types';
 
@@ -88,4 +87,4 @@ export const toBundle = (message: Message, warnings: WarningLog) => {
   return createCollectionBundle(resources as unknown as FhirResource[]);
 };
 
-export { decodeMessage };
+export { decodeMessage } from './lexer';

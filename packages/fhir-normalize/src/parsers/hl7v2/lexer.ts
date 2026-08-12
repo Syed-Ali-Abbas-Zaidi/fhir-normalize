@@ -12,7 +12,12 @@ const SEGMENT_TERMINATOR = /\r\n|\r|\n/;
 /** Read `MSH-1` and `MSH-2` out of the first line. */
 const delimitersFrom = (header: string): Delimiters => {
   const field = header[3] ?? DEFAULT_DELIMITERS.field;
-  const encoding = header.slice(4, header.indexOf(field, 4) === -1 ? 8 : header.indexOf(field, 4));
+
+  // The encoding characters run from just after the field separator to the
+  // next one. A header with no second separator is malformed; four characters
+  // is the most it could hold, so take that and let the defaults fill any gap.
+  const nextSeparator = header.indexOf(field, 4);
+  const encoding = header.slice(4, nextSeparator === -1 ? 8 : nextSeparator);
 
   return {
     field,
@@ -82,10 +87,21 @@ const decodeEscape = (code: string, delimiters: Delimiters): string | undefined 
       break;
   }
 
-  // `\Xdddd\` is hexadecimal character data, two digits per character.
+  /*
+   * `\Xdddd\` is hexadecimal character data, two digits per byte. The bytes
+   * are UTF-8, not one character each: reading them individually turns `é`
+   * (C3 A9) into `Ã©`, which is wrong for any name outside ASCII.
+   * `decodeURIComponent` does the UTF-8 work and rejects a malformed
+   * sequence, which then falls through and the escape is left as it arrived.
+   */
   if (/^X[0-9a-fA-F]+$/.test(code) && (code.length - 1) % 2 === 0) {
     const bytes = code.slice(1).match(/../g) ?? [];
-    return bytes.map((byte) => String.fromCharCode(Number.parseInt(byte, 16))).join('');
+
+    try {
+      return decodeURIComponent(bytes.map((byte) => `%${byte}`).join(''));
+    } catch {
+      return undefined;
+    }
   }
 
   return undefined;

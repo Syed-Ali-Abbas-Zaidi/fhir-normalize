@@ -130,10 +130,15 @@ describe('the lexer', () => {
     expect(first?.[1]).toEqual(['second|field&sub~rep\\esc\nline']);
   });
 
-  it('decodes hexadecimal escapes', () => {
-    const [, pid] = decodeMessage(message(HEADER, 'PID|||\\X48454C4C4F\\')).segments;
+  it('decodes hexadecimal escapes as UTF-8, not one character per byte', () => {
+    const [, pid] = decodeMessage(
+      // 'HELLO', then C3A9 — the two UTF-8 bytes of 'é'. Read individually
+      // those are 'Ã©', which is what a name outside ASCII turns into.
+      message(HEADER, 'PID|||\\X48454C4C4F\\|\\XC3A9\\'),
+    ).segments;
 
     expect(value(pid as never, 3)).toBe('HELLO');
+    expect(value(pid as never, 4)).toBe('é');
   });
 
   it('leaves an unknown or unterminated escape exactly as it arrived', () => {

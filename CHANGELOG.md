@@ -36,6 +36,9 @@ follows [semantic versioning](https://semver.org/spec/v2.0.0.html).
   timezone once hours are present, so the date is kept and the time dropped — assuming UTC would be
   a twelve-hour error for half the world.
 
+  Hexadecimal escapes (`\Xdddd\`) are decoded as UTF-8 rather than one character per byte, so a
+  name outside ASCII survives — `\XC3A9\` is `é`, not `Ã©`.
+
   Adds ~9 KB to a bundle that already parses, and nothing to one that does not import it.
 
 ### Changed

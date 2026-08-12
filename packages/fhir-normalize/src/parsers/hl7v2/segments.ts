@@ -128,43 +128,54 @@ const toEncounter = (segment: Segment, context: Context): Resource => {
   return encounter;
 };
 
+/** `OBX-6` is the units, which R4 splits across three Quantity elements. */
+const toQuantity = (segment: Segment, parsed: number): Resource => {
+  const quantity: Resource = { value: parsed };
+  const units = toCodeableConcept(repetitions(segment, 6)[0]);
+  const text = typeof units?.text === 'string' ? units.text : undefined;
+  const [coding] = Array.isArray(units?.coding) ? (units.coding as Resource[]) : [];
+  const code = typeof coding?.code === 'string' ? coding.code : undefined;
+
+  put(quantity, 'unit', text ?? code);
+  put(quantity, 'code', code);
+  put(quantity, 'system', coding?.system);
+
+  return quantity;
+};
+
+const toNumericValue = (segment: Segment, raw: string, warnings: WarningLog): Resource => {
+  const parsed = Number(raw);
+  if (Number.isFinite(parsed)) return { valueQuantity: toQuantity(segment, parsed) };
+
+  // `>100` and `<0.5` are ordinary in a lab feed and are not numbers. Keeping
+  // the text beats dropping the result.
+  warnings.add(HL7V2_WARNING.UNPARSEABLE_NUMBER('OBX-5', raw));
+
+  return { valueString: raw };
+};
+
+const DATE_TYPES: readonly string[] = [
+  OBX_VALUE_TYPE.DATE,
+  OBX_VALUE_TYPE.DATETIME,
+  OBX_VALUE_TYPE.DATETIME_EXTENDED,
+];
+
+const CODED_TYPES: readonly string[] = [OBX_VALUE_TYPE.CODED, OBX_VALUE_TYPE.CODED_WITH_EXCEPTIONS];
+
 /** OBX-2 decides which `value[x]` is written, and there is no `valueAny`. */
 const observationValue = (segment: Segment, warnings: WarningLog): Resource => {
   const type = (value(segment, 2) ?? '').toUpperCase();
   const raw = value(segment, 5);
   if (raw === undefined) return {};
 
-  if (type === OBX_VALUE_TYPE.NUMERIC) {
-    const parsed = Number(raw);
-    if (!Number.isFinite(parsed)) {
-      warnings.add(HL7V2_WARNING.UNPARSEABLE_NUMBER('OBX-5', raw));
-      return { valueString: raw };
-    }
+  if (type === OBX_VALUE_TYPE.NUMERIC) return toNumericValue(segment, raw, warnings);
 
-    const quantity: Resource = { value: parsed };
-    const units = toCodeableConcept(repetitions(segment, 6)[0]);
-    const unit = typeof units?.text === 'string' ? units.text : undefined;
-    const coding = Array.isArray(units?.coding)
-      ? (units.coding[0] as Resource | undefined)
-      : undefined;
-
-    put(quantity, 'unit', unit ?? (typeof coding?.code === 'string' ? coding.code : undefined));
-    put(quantity, 'code', coding?.code);
-    put(quantity, 'system', coding?.system);
-
-    return { valueQuantity: quantity };
-  }
-
-  if (type === OBX_VALUE_TYPE.CODED || type === OBX_VALUE_TYPE.CODED_WITH_EXCEPTIONS) {
+  if (CODED_TYPES.includes(type)) {
     const concept = toCodeableConcept(repetitions(segment, 5)[0]);
     return concept === undefined ? {} : { valueCodeableConcept: concept };
   }
 
-  if (
-    type === OBX_VALUE_TYPE.DATE ||
-    type === OBX_VALUE_TYPE.DATETIME ||
-    type === OBX_VALUE_TYPE.DATETIME_EXTENDED
-  ) {
+  if (DATE_TYPES.includes(type)) {
     const when = toDateTime(raw, 'OBX-5', warnings);
     return when === undefined ? {} : { valueDateTime: when };
   }
