@@ -46,7 +46,9 @@ follows [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
   A conformance check now holds this: adding a row for one resource fails the suite until every
   other resource the pattern fits is covered, or listed as a deliberate exception with the reason it
-  cannot be verified. Three exceptions are recorded, all because the digests carry element types and
+  cannot be verified. A rewrite's declared targets are themselves checked by calling the converter
+  with inputs that exercise each of its branches and comparing the keys it really writes — the
+  declaration is what two other checks rest on, so it cannot rest on nothing. Three exceptions are recorded, all because the digests carry element types and
   cardinality and never value-set bindings — `notDone` and `notGiven` write a `status`, and R4 binds
   that to a different value set per resource.
 

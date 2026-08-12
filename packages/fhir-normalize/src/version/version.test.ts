@@ -505,13 +505,25 @@ describe('R5 -> R4, the widened rows', () => {
   });
 
   it('drops a value[x] type R4 forbids, rather than passing it through', () => {
-    // The rest of the R5 gap passes through for `validate` to report. A choice
-    // carrying a type R4 forbids is different: it makes the resource wrong.
-    for (const source of ['valueReference', 'valueAttachment']) {
+    /*
+     * The rest of the R5 gap passes through for `validate` to report. A choice
+     * carrying a type R4 forbids is different: it makes the resource wrong.
+     *
+     * Each source gets a value of its own datatype — a Reference where the key
+     * says Reference, an Attachment where it says Attachment. Feeding both the
+     * same Reference-shaped object would let a regression that preserves valid
+     * Attachments still pass.
+     */
+    const cases: [string, Record<string, unknown>][] = [
+      ['valueReference', { reference: 'Media/m1' }],
+      ['valueAttachment', { contentType: 'image/jpeg', data: 'AA==' }],
+    ];
+
+    for (const [source, value] of cases) {
       const { resource, warnings } = migrate({
         resourceType: 'Observation',
         id: 'o',
-        [source]: { reference: 'Media/m1' },
+        [source]: value,
       });
 
       expect(resource).not.toHaveProperty(source);
@@ -537,6 +549,7 @@ describe('a pattern applies to every resource that fits it', () => {
 
       expect(resource.reasonCode).toEqual([{ text: 'why' }]);
       expect(resource.reasonReference).toEqual([{ reference: 'Condition/c1' }]);
+      expect(resource).not.toHaveProperty('reason');
     }
   });
 
@@ -549,6 +562,7 @@ describe('a pattern applies to every resource that fits it', () => {
       });
 
       expect(resource.medicationCodeableConcept).toEqual({ text: 'aspirin' });
+      expect(resource).not.toHaveProperty('medication');
     }
   });
 
@@ -561,6 +575,7 @@ describe('a pattern applies to every resource that fits it', () => {
       });
 
       expect(resource.context).toEqual({ reference: 'Encounter/e1' });
+      expect(resource).not.toHaveProperty('encounter');
     }
   });
 
@@ -573,6 +588,7 @@ describe('a pattern applies to every resource that fits it', () => {
       });
 
       expect(resource.encounter).toEqual({ reference: 'Encounter/e1' });
+      expect(resource).not.toHaveProperty('context');
     }
   });
 
@@ -605,6 +621,8 @@ describe('a pattern applies to every resource that fits it', () => {
 
       expect(fromR5.resource.reasonCode).toEqual([{ text: 'R5' }]);
       expect(fromStu3.resource.reasonCode).toEqual([{ text: 'STU3' }]);
+      expect(fromR5.resource).not.toHaveProperty('reason');
+      expect(fromStu3.resource).not.toHaveProperty('reason');
     }
   });
 
@@ -616,6 +634,7 @@ describe('a pattern applies to every resource that fits it', () => {
     });
 
     expect(resource.reasonCode).toEqual([{ text: 'one concept, not a list' }]);
+    expect(resource).not.toHaveProperty('reason');
   });
 
   it('leaves Task.reason as one value, because R4 Task keeps it 0..1', () => {
@@ -628,6 +647,7 @@ describe('a pattern applies to every resource that fits it', () => {
     });
 
     expect(resource.reasonCode).toEqual({ text: 'single' });
+    expect(resource).not.toHaveProperty('reason');
   });
 });
 

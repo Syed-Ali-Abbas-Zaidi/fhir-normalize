@@ -137,6 +137,78 @@ describe('the migration table matches the releases it claims', () => {
     expect(missing).toEqual([]);
   });
 
+  /**
+   * Inputs that exercise every branch of every rewrite in the table, keyed by
+   * the release and field the row fires on.
+   *
+   * All probes for a key are applied to every row with that key. Two different
+   * converters share `R5.reason` — the flat `CodeableReference` list and
+   * `Encounter`'s backbone — and each returns nothing for the other's shape, so
+   * running both probes against both is harmless and covers both.
+   */
+  const REWRITE_PROBES: Readonly<Record<string, readonly unknown[]>> = {
+    'R5.reason': [
+      [{ concept: { text: 'a' } }, { reference: { reference: 'Condition/c1' } }],
+      [
+        {
+          use: [{ text: 'u' }],
+          value: [{ concept: { text: 'a' } }, { reference: { reference: 'X/1' } }],
+        },
+      ],
+    ],
+    'R5.medication': [{ concept: { text: 'a' }, reference: { reference: 'Medication/m1' } }],
+    'STU3.notDone': [true, false],
+    'STU3.notGiven': [true, false],
+    'STU3.explanation': [{ reason: [{ text: 'a' }], reasonNotGiven: [{ text: 'b' }] }],
+  };
+
+  /*
+   * `writes` is a hand-written claim, and `applyMigration` writes whatever the
+   * rewrite returns — not what the row says it returns. So a stale or omitted
+   * declaration could let a field R4 does not define reach the resource, and
+   * could make the pattern check above pass on the wrong grounds. Both checks
+   * rest on `writes`, so `writes` has to rest on the converter.
+   */
+  it('declares writes on every rewrite, and declares them completely', () => {
+    const problems: string[] = [];
+
+    for (const { resourceType, migration } of rows) {
+      if (migration.rewrite === undefined) continue;
+
+      const declared = migration.writes ?? [];
+      if (declared.length === 0) {
+        problems.push(
+          `${resourceType}.${migration.source} rewrites without declaring \`writes\`, so nothing ` +
+            'can check where it writes.',
+        );
+        continue;
+      }
+
+      const key = `${migration.from}.${migration.source}`;
+      const probes = REWRITE_PROBES[key];
+      if (probes === undefined) {
+        problems.push(
+          `${resourceType}.${migration.source} rewrites and has no probe in REWRITE_PROBES, so its ` +
+            'declaration is unverified. Add one.',
+        );
+        continue;
+      }
+
+      for (const probe of probes) {
+        for (const written of Object.keys(migration.rewrite(probe))) {
+          if (!declared.includes(written)) {
+            problems.push(
+              `${resourceType}.${migration.source} writes "${written}", which \`writes\` does not ` +
+                'declare. Either the declaration is stale or the converter changed.',
+            );
+          }
+        }
+      }
+    }
+
+    expect([...new Set(problems)].sort()).toEqual([]);
+  });
+
   it('rewrites onto fields that exist in R4', () => {
     // A rewrite picks its own output keys, so `writes` is the only thing that
     // can be checked against the definitions. Declaring it wrong is as bad as
