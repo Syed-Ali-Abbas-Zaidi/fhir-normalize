@@ -2,7 +2,7 @@ import { defineConfig } from 'tsup';
 
 export default defineConfig({
   /**
-   * Six entry points, not one.
+   * Seven entry points, not one.
    *
    * Bundling everything into a single module leaves a bundler nothing to cut
    * along: `sideEffects: false` can drop a whole module but not part of one,
@@ -18,6 +18,7 @@ export default defineConfig({
     xml: 'src/parsers/fhir-xml/index.ts',
     validate: 'src/validate/index.ts',
     stream: 'src/stream/index.ts',
+    hl7v2: 'src/parsers/hl7v2/index.ts',
   },
   format: ['esm', 'cjs'],
   dts: true,

@@ -159,6 +159,7 @@ jobs:
             import { fhirXmlParser } from 'fhir-normalize/xml';
             import { validateBundle } from 'fhir-normalize/validate';
             import { parseNdjsonStream } from 'fhir-normalize/stream';
+            import { hl7v2Parser } from 'fhir-normalize/hl7v2';
 
             const plain = createDefaultNormalizer();
             if (plain.detectFormat('<Patient/>') !== null) throw new Error('xml should not be registered by default');
@@ -179,6 +180,11 @@ jobs:
             let streamed = 0;
             for await (const batch of parseNdjsonStream(chunks())) streamed += batch.bundle.entry.length;
             if (streamed !== 2) throw new Error('stream failed: ' + streamed);
+
+            const v2 = plain.register(hl7v2Parser)
+              .parse('MSH|^~\\&|A|B|C|D|20260812093000-0400||ADT^A01|1|P|2.5\rPID|1||42||DOE^JOHN');
+            if (v2.meta.sourceFormat !== 'hl7v2') throw new Error('hl7v2 detection failed');
+            if (v2.bundle.entry[0].resource.name[0].family !== 'DOE') throw new Error('hl7v2 mapping failed');
 
             console.log('subpaths ok on node ' + process.versions.node);
           "
