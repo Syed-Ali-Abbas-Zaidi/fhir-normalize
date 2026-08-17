@@ -113,6 +113,7 @@
     "fields:types": "node scripts/generate-field-types.mjs",
     "validate:index": "node scripts/generate-validate-index.mjs",
     "xml:cardinality": "node scripts/generate-xml-cardinality.mjs",
+    "bench": "node scripts/bench.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",

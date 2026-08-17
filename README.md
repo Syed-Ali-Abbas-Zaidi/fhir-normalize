@@ -209,15 +209,26 @@ The source is any `AsyncIterable<string | Uint8Array>`, which a Node `Readable`,
 landing mid-line or mid-character are handled; a line that does not decode is skipped and reported
 with its line number counted from the start of the file.
 
-Measured on this machine, against two synthetic exports of Observations:
+Measured by `pnpm --filter fhir-normalize bench`, against synthetic exports of Observations:
 
 | Export | `parse()` | `parseNdjsonStream()` |
 | --- | --- | --- |
-| 250 MB, 800,101 resources | 2.0 s, **1,271 MB** peak RSS | 1.4 s, **157 MB** |
-| 700 MB, 2,235,902 resources | `ERR_STRING_TOO_LONG` | 3.6 s, **192 MB** |
+| 250 MB, 822,000 resources | 1.6 s, **1,014 MB** | 1.1 s, **120 MB** |
+| 700 MB, 2,302,000 resources | `ERR_STRING_TOO_LONG` | 3.3 s, **186 MB** |
 
-Peak memory follows `batchSize`, not the size of the file, which is why the second row is barely
-larger than the first. A single line longer than `maxLineLength` (32 MB by default) is refused
+Peak is sampled resident set size — what `top` shows and what an out-of-memory killer counts. Both
+columns run the same post-parse stages, so the comparison is like for like; streaming without them
+looks better than this and would not be the same workload.
+
+These absolute figures belong to the machine that produced them, so **what CI checks is the ratio**:
+tenfold the input must not cost anything like tenfold the memory. Streaming comes in at 2.1x where
+`parse()` is 7.8x, and the test fails at 4x or higher — and separately fails if streaming ever grows
+more than half as fast as `parse()`, which calibrates to whatever machine is running it. That is a
+property of the code rather than of the hardware.
+
+Streaming is sublinear rather than flat: 2.8 times the input costs 1.6 times the memory, because the
+migration stage allocates per batch and the collector is not asked to keep up. What it never does is
+scale with the file, which is the difference between an export that fits and one that does not. A single line longer than `maxLineLength` (32 MB by default) is refused
 rather than buffered, because a file with no newlines in it would otherwise exhaust memory exactly
 the way `parse()` does.
 

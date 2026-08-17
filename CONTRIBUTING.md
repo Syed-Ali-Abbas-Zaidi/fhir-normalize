@@ -123,6 +123,20 @@ Coverage reaches Sonar as lcov. `vitest` writes paths relative to the package it
 resolves them against the repository root, so the workflow rewrites them in between — without that
 step coverage reads as zero and looks like a project with no tests.
 
+## Performance claims
+
+The README prints streaming figures, and `pnpm --filter fhir-normalize bench` is what produces them.
+Change something that could move them and re-run it; the output is already in the table's shape.
+
+**What CI checks is never the megabytes.** An absolute figure belongs to the machine that measured
+it and would make the suite flaky on a runner. `src/stream/performance.test.ts` asserts the ratio
+instead — that tenfold the input does not cost tenfold the memory — because that is a property of
+the code. Streaming measures 1.5x where `parse()` measures 7.8x, and the threshold sits at 3x with
+more than double the margin on either side.
+
+That test also measures `parse()` and asserts it *fails* the same check. Without that control, a
+harness that had stopped measuring anything would pass every other assertion in the file.
+
 ## Tests
 
 - Runtime behaviour: `*.test.ts`
