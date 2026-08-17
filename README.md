@@ -31,7 +31,7 @@ import type { Bundle, FhirResource } from 'fhir-normalize';
 
 ## Status
 
-`2.7.0`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform`, and the `Normalizer`
+`2.8.0`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform`, and the `Normalizer`
 methods — is stable under semver; anything breaking lands in a major.
 
 | Format | Status |
@@ -97,7 +97,7 @@ The 147 resource shape tables are the bulk of the library, and they only ship if
 | parsing only | **~19 KB** (~7 KB gzipped) |
 | parsing + the simplified view | ~84 KB (~24 KB gzipped) |
 | parsing + XML | ~106 KB (~35 KB gzipped) |
-| validation, on its own | ~80 KB (~15 KB gzipped) |
+| validation, on its own | ~80 KB (~16 KB gzipped) |
 | parsing + streaming | ~21 KB (~8 KB gzipped) |
 | parsing + HL7 v2 | ~29 KB (~11 KB gzipped) |
 
@@ -365,6 +365,19 @@ payload with fifty problems reports fifty.
 
 It descends one level into backbone elements, so a bad value inside `Observation.component` is
 reported with the index that finds it: `Observation.component[1].valueNonsense`.
+
+**A nested resource is checked like any other**, wherever it is: in `contained`, in a Bundle held by
+another Bundle, and in `Parameters.parameter.resource` — the two positions besides
+`Bundle.entry.resource` that R4 types as holding a whole resource, read from the definitions rather
+than listed by hand. The path says how it was reached:
+
+```text
+Bundle.entry[0].resource.contained[0].gender
+```
+
+Nesting is bounded at 100 levels, below which the walk stops and reports that it did. Nothing in the
+specification bounds it, and a resource handed in from code rather than parsed from JSON can contain
+itself.
 
 > [!NOTE]
 > **This is structural conformance against base R4, not the official validator.** It does not check

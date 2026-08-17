@@ -256,3 +256,166 @@ describe('validateBundle checks the Bundle itself, not only what is inside it', 
     expect(issues.map((i) => i.path)).toEqual(['Bundle.entry[0].resource.gendre']);
   });
 });
+
+describe('a nested resource is a resource, and gets checked like one', () => {
+  /*
+   * Every other part of this library already treats them that way — the
+   * migration stage walks `contained` and says so in a comment, de-identify
+   * pseudonymises inside it, the XML parser unwraps it. Validation was the one
+   * place that looked at the wrapper and stopped, so a Bundle full of contained
+   * resources came back clean no matter what was in them.
+   */
+  const broken = {
+    resourceType: 'Patient',
+    id: 'p1',
+    gender: ['not', 'a', 'list-element'],
+    notAnR4Element: 1,
+  };
+
+  const codesFor = (issues: ReturnType<typeof validateResource>) =>
+    issues.map((issue) => issue.code).sort();
+
+  it('checks a contained resource', () => {
+    const issues = validateResource({
+      resourceType: 'Observation',
+      id: 'o1',
+      status: 'final',
+      code: { text: 'x' },
+      contained: [broken],
+    });
+
+    expect(codesFor(issues)).toEqual([
+      VALIDATION_CODE.EXPECTED_SINGLE,
+      VALIDATION_CODE.UNKNOWN_ELEMENT,
+    ]);
+    expect(issues.map((issue) => issue.path)).toEqual([
+      'Observation.contained[0].gender',
+      'Observation.contained[0].notAnR4Element',
+    ]);
+  });
+
+  it('checks a resource inside Parameters, the other position R4 types as Resource', () => {
+    const issues = validateResource({
+      resourceType: 'Parameters',
+      id: 'pp',
+      parameter: [{ name: 'subject', resource: broken }],
+    });
+
+    expect(issues.map((issue) => issue.path)).toEqual([
+      'Parameters.parameter[0].resource.gender',
+      'Parameters.parameter[0].resource.notAnR4Element',
+    ]);
+  });
+
+  it('checks a Bundle nested inside a Bundle', () => {
+    const issues = validateBundle({
+      resourceType: 'Bundle',
+      type: 'collection',
+      entry: [
+        {
+          resource: {
+            resourceType: 'Bundle',
+            type: 'collection',
+            entry: [{ resource: broken }],
+          },
+        },
+      ],
+    } as never);
+
+    expect(issues.map((issue) => issue.path)).toEqual([
+      'Bundle.entry[0].resource.entry[0].resource.gender',
+      'Bundle.entry[0].resource.entry[0].resource.notAnR4Element',
+    ]);
+  });
+
+  it('reaches a resource contained inside a bundled resource', () => {
+    const issues = validateBundle({
+      resourceType: 'Bundle',
+      type: 'collection',
+      entry: [
+        {
+          resource: {
+            resourceType: 'Observation',
+            id: 'o1',
+            status: 'final',
+            code: { text: 'x' },
+            contained: [broken],
+          },
+        },
+      ],
+    } as never);
+
+    expect(issues.map((issue) => issue.path)).toEqual([
+      'Bundle.entry[0].resource.contained[0].gender',
+      'Bundle.entry[0].resource.contained[0].notAnR4Element',
+    ]);
+  });
+
+  it('reports each resource once, not once per way of reaching it', () => {
+    const issues = validateBundle({
+      resourceType: 'Bundle',
+      type: 'collection',
+      entry: [{ resource: broken }],
+    } as never);
+
+    expect(issues).toHaveLength(2);
+  });
+
+  it('still reports nothing for a clean payload, nesting and all', () => {
+    const clean = validateBundle({
+      resourceType: 'Bundle',
+      type: 'collection',
+      entry: [
+        {
+          resource: {
+            resourceType: 'MedicationRequest',
+            id: 'mr1',
+            status: 'active',
+            intent: 'order',
+            subject: { reference: 'Patient/p1' },
+            medicationReference: { reference: '#med1' },
+            contained: [{ resourceType: 'Medication', id: 'med1', code: { text: 'aspirin' } }],
+          },
+        },
+      ],
+    } as never);
+
+    expect(clean).toEqual([]);
+  });
+});
+
+describe('the walk is bounded', () => {
+  it('stops and says so rather than running off the stack', () => {
+    // Nothing in the specification bounds how deep resources nest, and a
+    // caller can hand in an object `JSON.parse` could never have produced.
+    let deep: Record<string, unknown> = { resourceType: 'Patient', id: 'p' };
+    for (let level = 0; level < 150; level += 1) {
+      deep = {
+        resourceType: 'Observation',
+        id: `o${level}`,
+        status: 'final',
+        code: { text: 'x' },
+        contained: [deep],
+      };
+    }
+
+    const issues = validateResource(deep);
+
+    expect(issues).toHaveLength(1);
+    expect(issues[0]?.code).toBe(VALIDATION_CODE.NESTING_TOO_DEEP);
+    expect(issues[0]?.severity).toBe(VALIDATION_SEVERITY.WARNING);
+  });
+
+  it('terminates on a resource that contains itself', () => {
+    const cyclic: Record<string, unknown> = {
+      resourceType: 'Observation',
+      id: 'a',
+      status: 'final',
+      code: { text: 'x' },
+      contained: [] as unknown[],
+    };
+    (cyclic.contained as unknown[]).push(cyclic);
+
+    expect(validateResource(cyclic).at(-1)?.code).toBe(VALIDATION_CODE.NESTING_TOO_DEEP);
+  });
+});
