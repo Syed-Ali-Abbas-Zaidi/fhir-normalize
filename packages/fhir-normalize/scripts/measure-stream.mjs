@@ -64,7 +64,15 @@ try {
       for (let index = 0; index < chunks; index += 1) yield CHUNK;
     }
 
-    for await (const { bundle } of parseNdjsonStream(source())) {
+    /*
+     * The same normalizer `parse()` gets, so the two modes do the same work.
+     * Without it the stream runs no post-parse stages at all while `parse()`
+     * runs the cross-version migration over every resource, and the comparison
+     * flatters streaming by measuring less of it.
+     */
+    const options = { normalizer: createDefaultNormalizer() };
+
+    for await (const { bundle } of parseNdjsonStream(source(), options)) {
       resources += bundle.entry?.length ?? 0;
       sample();
     }
