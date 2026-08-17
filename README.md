@@ -375,7 +375,8 @@ than listed by hand. The path says how it was reached:
 Bundle.entry[0].resource.contained[0].gender
 ```
 
-Nesting is bounded at 100 levels, below which the walk stops and reports that it did. Nothing in the
+Nesting is bounded at 100 levels: the walk validates through the hundredth and stops beyond it,
+reporting that it did. Nothing in the
 specification bounds it, and a resource handed in from code rather than parsed from JSON can contain
 itself.
 

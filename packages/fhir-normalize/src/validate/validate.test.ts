@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { VALIDATION_CODE, VALIDATION_SEVERITY } from './constants';
+import { MAX_NESTING, VALIDATION_CODE, VALIDATION_SEVERITY } from './constants';
 import { validateBundle, validateResource } from './utils';
 
 /**
@@ -385,11 +385,19 @@ describe('a nested resource is a resource, and gets checked like one', () => {
 });
 
 describe('the walk is bounded', () => {
-  it('stops and says so rather than running off the stack', () => {
-    // Nothing in the specification bounds how deep resources nest, and a
-    // caller can hand in an object `JSON.parse` could never have produced.
-    let deep: Record<string, unknown> = { resourceType: 'Patient', id: 'p' };
-    for (let level = 0; level < 150; level += 1) {
+  /**
+   * A chain of `links` nested resources with something wrong at the bottom, so
+   * a test can tell "the walk reached the end" from "the walk stopped early
+   * and said nothing".
+   */
+  const chain = (links: number): Record<string, unknown> => {
+    let deep: Record<string, unknown> = {
+      resourceType: 'Patient',
+      id: 'deepest',
+      notAnR4Element: 1,
+    };
+
+    for (let level = 0; level < links; level += 1) {
       deep = {
         resourceType: 'Observation',
         id: `o${level}`,
@@ -399,11 +407,27 @@ describe('the walk is bounded', () => {
       };
     }
 
-    const issues = validateResource(deep);
+    return deep;
+  };
 
-    expect(issues).toHaveLength(1);
-    expect(issues[0]?.code).toBe(VALIDATION_CODE.NESTING_TOO_DEEP);
+  /*
+   * Both sides of the boundary, because a test that only feeds it 150 levels
+   * passes just as well if the walk gives up at one.
+   */
+  it('validates all the way to the limit', () => {
+    const issues = validateResource(chain(MAX_NESTING));
+
+    expect(issues.map((issue) => issue.code)).toEqual([VALIDATION_CODE.UNKNOWN_ELEMENT]);
+    expect(issues[0]?.path.endsWith('notAnR4Element')).toBe(true);
+  });
+
+  it('stops one level past it, and says so rather than running off the stack', () => {
+    const issues = validateResource(chain(MAX_NESTING + 1));
+
+    expect(issues.map((issue) => issue.code)).toEqual([VALIDATION_CODE.NESTING_TOO_DEEP]);
     expect(issues[0]?.severity).toBe(VALIDATION_SEVERITY.WARNING);
+    // Nothing below the limit was looked at, which is what the warning says.
+    expect(issues.some((issue) => issue.path.endsWith('notAnR4Element'))).toBe(false);
   });
 
   it('terminates on a resource that contains itself', () => {
