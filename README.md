@@ -209,15 +209,19 @@ The source is any `AsyncIterable<string | Uint8Array>`, which a Node `Readable`,
 landing mid-line or mid-character are handled; a line that does not decode is skipped and reported
 with its line number counted from the start of the file.
 
-Measured on this machine, against two synthetic exports of Observations:
+Measured by `pnpm --filter fhir-normalize bench`, against synthetic exports of Observations:
 
 | Export | `parse()` | `parseNdjsonStream()` |
 | --- | --- | --- |
-| 250 MB, 800,101 resources | 2.0 s, **1,271 MB** peak RSS | 1.4 s, **157 MB** |
-| 700 MB, 2,235,902 resources | `ERR_STRING_TOO_LONG` | 3.6 s, **192 MB** |
+| 250 MB, 822,000 resources | 1.5 s, **913 MB** | 0.9 s, **104 MB** |
+| 700 MB, 2,302,000 resources | `ERR_STRING_TOO_LONG` | 2.8 s, **119 MB** |
 
-Peak memory follows `batchSize`, not the size of the file, which is why the second row is barely
-larger than the first. A single line longer than `maxLineLength` (32 MB by default) is refused
+Peak is sampled resident set size — what `top` shows and what an out-of-memory killer counts.
+
+These absolute figures belong to the machine that produced them, so **what CI checks is the ratio**:
+tenfold the input must not cost anything like tenfold the memory. Streaming comes in at 1.5x where
+`parse()` is 7.8x, and the test fails anything above 3x. That is a property of the code rather than
+of the hardware, which is why the second row above is barely larger than the first. A single line longer than `maxLineLength` (32 MB by default) is refused
 rather than buffered, because a file with no newlines in it would otherwise exhaust memory exactly
 the way `parse()` does.
 
