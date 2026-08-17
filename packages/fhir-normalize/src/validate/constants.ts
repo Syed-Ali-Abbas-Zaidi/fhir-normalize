@@ -20,6 +20,7 @@ export const VALIDATION_CODE = {
   EMPTY_ARRAY: 'empty-array',
   MISSING_REQUIRED: 'missing-required',
   DISALLOWED_CHOICE_TYPE: 'disallowed-choice-type',
+  NESTING_TOO_DEEP: 'nesting-too-deep',
 } as const;
 
 export const VALIDATION_MESSAGE = {
@@ -33,6 +34,8 @@ export const VALIDATION_MESSAGE = {
   MISSING_REQUIRED: 'R4 requires this element.',
   DISALLOWED_CHOICE_TYPE: (permitted: readonly string[]): string =>
     `R4 does not allow this type here. Permitted: ${permitted.join(', ')}.`,
+  NESTING_TOO_DEEP: (limit: number): string =>
+    `Resources are nested more than ${limit} deep, so nothing below this was checked.`,
 } as const;
 
 /**
@@ -41,3 +44,15 @@ export const VALIDATION_MESSAGE = {
  * generated index, with its cardinality, so it is checked rather than skipped.
  */
 export const DISCRIMINATOR = 'resourceType';
+
+/**
+ * How far resources may nest before the walk stops and says so.
+ *
+ * A Bundle may contain a Bundle, and a resource may contain resources that
+ * contain more; nothing in the specification bounds it. Real payloads are a
+ * few levels at most, so 100 leaves room while keeping a hand-built cyclic
+ * object — which `JSON.parse` cannot produce but a caller can — from running
+ * this off the stack. `deidentify` bounds its own walk at the same number for
+ * the same reason.
+ */
+export const MAX_NESTING = 100;

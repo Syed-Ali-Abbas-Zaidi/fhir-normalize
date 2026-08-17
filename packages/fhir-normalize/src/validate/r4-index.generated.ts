@@ -9475,6 +9475,22 @@ export const COMMON_ELEMENTS: Readonly<Record<string, IndexedElement>> =
     }
   };
 
+/**
+ * Where a resource nests another whole resource, relative to the resource.
+ *
+ * `contained` is not here: every resource may carry it, so it is handled
+ * directly rather than repeated 146 times.
+ */
+export const RESOURCE_CONTAINERS: Readonly<Record<string, readonly string[]>> =
+  {
+    "Bundle": [
+      "entry.resource"
+    ],
+    "Parameters": [
+      "parameter.resource"
+    ]
+  };
+
 /** Lowercased, because the spec writes `string` and a payload writes `valueString`. */
 export const FHIR_TYPE_NAMES: ReadonlySet<string> = new Set(
   ["address","age","annotation","attachment","backboneelement","base64binary","boolean","canonical","code","codeableconcept","coding","contactdetail","contactpoint","contributor","count","datarequirement","date","datetime","decimal","distance","dosage","duration","elementdefinition","expression","humanname","id","identifier","instant","integer","markdown","marketingstatus","meta","money","oid","parameterdefinition","period","population","positiveint","prodcharacteristic","productshelflife","quantity","range","ratio","reference","relatedartifact","resource","sampleddata","signature","string","time","timing","triggerdefinition","unsignedint","uri","url","usagecontext","uuid"],

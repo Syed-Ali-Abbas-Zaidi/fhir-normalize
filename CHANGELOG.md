@@ -5,6 +5,41 @@ All notable changes to `fhir-normalize`.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.8.0] — 2026-08-17
+
+### Fixed
+
+- **Validation looked at the wrapper and stopped.** A resource nested inside another was not checked
+  at all, so a Bundle full of `contained` resources came back clean whatever was in them. Three
+  positions were blind — the same payload, a `Patient` carrying a non-R4 element and a cardinality
+  violation, reported two issues at the top level and none anywhere else:
+
+  ```text
+  direct                       2 issues
+  inside contained             0        ← now 2
+  inside Bundle.entry          2
+  inside a nested Bundle       0        ← now 2
+  inside Parameters.parameter  0        ← now 2
+  ```
+
+  Every other part of the library already treats a nested resource as a resource: the cross-version
+  stage walks `contained` and says so in a comment, de-identification pseudonymises inside it, the
+  XML parser unwraps it. Validation was the exception.
+
+  The positions come from the definitions rather than a hand-written list. `Bundle.entry.resource`
+  and `Parameters.parameter.resource` are the only two elements in R4 typed as `Resource`, and the
+  generated index now carries them — derived the same way the XML parser derives its own copy, so
+  neither can drift from the spec or from the other.
+
+  Paths say how a resource was reached: `Bundle.entry[0].resource.contained[0].gender`.
+
+  The walk is bounded at 100 levels and reports when it stops. Nothing in the specification bounds
+  nesting, and a resource built in code rather than parsed from JSON can contain itself — which used
+  to exhaust the stack and now returns in milliseconds.
+
+  Adds `nesting-too-deep` to `VALIDATION_CODE`. `validateBundle` is unchanged for a flat Bundle,
+  including the paths it reports.
+
 ## [2.7.0] — 2026-08-12
 
 ### Added
