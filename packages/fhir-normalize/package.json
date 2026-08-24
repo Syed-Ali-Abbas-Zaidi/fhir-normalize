@@ -121,7 +121,7 @@
   },
   "dependencies": {
     "@types/fhir": "^0.0.44",
-    "fast-xml-parser": "^5.10.1"
+    "fast-xml-parser": "^5.11.0"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^4.1.10",
