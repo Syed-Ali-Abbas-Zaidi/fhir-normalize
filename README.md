@@ -28,7 +28,7 @@ import type { Bundle, FhirResource } from 'fhir-normalize';
 
 ## Status
 
-`2.9.0`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform` and the `Normalizer`
+`2.10.0`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform` and the `Normalizer`
 methods — is stable under semver.
 
 | Format | Status |
@@ -43,6 +43,7 @@ methods — is stable under semver.
 | Flat rows, for CSV and tabular loads | ✅ via `fhir-normalize/simplified` |
 | De-identification | ✅ structural — [read the limits](#de-identification) |
 | R4 conformance checking | ✅ structural, via `fhir-normalize/validate` |
+| NDJSON out, for Bulk Data-shaped exports | ✅ |
 | C-CDA, CSV in | 📋 Later |
 
 ## Install
@@ -77,7 +78,7 @@ Measured on a real install, minified, with dependencies included:
 
 | What you import | Bundled |
 | --- | --- |
-| parsing only | **~19 KB** (~7 KB gzipped) |
+| parsing only | **~20 KB** (~8 KB gzipped) |
 | parsing + streaming | ~21 KB (~8 KB gzipped) |
 | parsing + HL7 v2 | ~31 KB (~12 KB gzipped) |
 | validation, on its own | ~80 KB (~16 KB gzipped) |
@@ -172,6 +173,32 @@ between an export that fits and one that does not.
 > [!NOTE]
 > **NDJSON only.** A single enormous JSON Bundle or XML document needs an incremental parser, which
 > this is not. For those, `parse()` and the 512 MB ceiling still apply.
+
+#### NDJSON out
+
+The mirror. Anything this library can read becomes a Bulk Data-shaped export, so an HL7 v2 message
+or an XML document can leave as NDJSON:
+
+```ts
+import { createDefaultNormalizer, toNdjson, toNdjsonByType } from 'fhir-normalize';
+
+const { bundle } = createDefaultNormalizer().register(hl7v2Parser).parse(adtMessage);
+
+await writeFile('out.ndjson', toNdjson(bundle));
+
+// Or a file per resource type, which is what an export looks like on disk.
+for (const [resourceType, ndjson] of Object.entries(toNdjsonByType(bundle))) {
+  await writeFile(`${resourceType}.ndjson`, ndjson);
+}
+```
+
+The Bundle wrapper is not written — NDJSON carries resources — so `parse()` on the output gives back
+an equivalent Bundle rather than one nested inside another. Every line ends in a newline, including
+the last, so files concatenate. Streaming out is the same call per batch.
+
+A resource can never span two lines: `JSON.stringify` escapes every newline it meets, which is what
+makes the format safe to split on. A resource with no `resourceType` — which `parse()` can produce
+and reports — is filed under `Unknown` rather than dropped.
 
 ### HL7 v2 in, FHIR out
 
@@ -541,6 +568,7 @@ package has no side effects, so this stays tree-shakeable.
 | `createDefaultNormalizer()` | A `Normalizer` with the built-in JSON-family parsers registered. |
 | `fhirJsonParser`, `ndjsonParser`, `fhirXmlParser`, `hl7v2Parser` | The built-in adapters. |
 | `parseNdjsonStream` | Streaming NDJSON, batch by batch. `fhir-normalize/stream` only. |
+| `toNdjson`, `toNdjsonByType` | A Bundle as newline-delimited JSON: one document, or one per resource type. |
 | `r4VersionTransform`, `VERSION_MIGRATION`, `FHIR_VERSION` | The cross-version stage, its table, and the release tokens. |
 | `validateBundle`, `validateResource` | Structural R4 conformance. `fhir-normalize/validate` only. |
 | `simplifyBundle`, `simplifyResource` | The simplified view: choice types resolved, datatypes flattened. |
