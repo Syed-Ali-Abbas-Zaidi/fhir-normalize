@@ -29,10 +29,34 @@ export const SEGMENT = {
   HEADER: HEADER_SEGMENT,
   PATIENT: 'PID',
   VISIT: 'PV1',
+  /** The order an ORU reports on. Groups the OBX segments that follow it. */
+  REPORT: 'OBR',
   OBSERVATION: 'OBX',
   ALLERGY: 'AL1',
   DIAGNOSIS: 'DG1',
+  NEXT_OF_KIN: 'NK1',
+  INSURANCE: 'IN1',
 } as const;
+
+/**
+ * `OBR-25` to `DiagnosticReport.status`.
+ *
+ * Only the codes with an unambiguous R4 counterpart. `O` (order received) and
+ * `S` (scheduled) describe an order that has produced nothing yet, which is
+ * what `registered` means; `A` is some-but-not-all results, which is `partial`.
+ * Anything unlisted falls through to `unknown`, which the value set includes.
+ */
+export const REPORT_STATUS: Readonly<Record<string, string>> = {
+  O: 'registered',
+  S: 'registered',
+  I: 'registered',
+  A: 'partial',
+  R: 'preliminary',
+  P: 'preliminary',
+  F: 'final',
+  C: 'corrected',
+  X: 'cancelled',
+};
 
 /** `OBX-2`, the value type, decides which `Observation.value[x]` is written. */
 export const OBX_VALUE_TYPE = {
@@ -104,7 +128,14 @@ export const HL7V2_ERROR = {
   NO_HEADER: 'An HL7 v2 message must begin with an MSH segment.',
   NO_SEGMENTS: 'The message contained no segments after the header.',
   NO_RESOURCES:
-    'No segment in the message maps to a FHIR resource. Supported segments are PID, PV1, OBX, AL1 and DG1.',
+    'No segment in the message maps to a FHIR resource. Supported segments are PID, PV1, OBR, OBX, AL1, DG1, NK1 and IN1.',
+  /*
+   * Distinct from NO_RESOURCES, because the segments were understood and then
+   * withheld. Telling someone their NK1 is unsupported when it was skipped for
+   * want of a PID sends them looking in the wrong place entirely.
+   */
+  ONLY_WITHOUT_PATIENT:
+    'Every segment that maps to a resource needs a patient R4 requires, and the message has no PID.',
 } as const;
 
 export const HL7V2_WARNING = {
@@ -112,7 +143,7 @@ export const HL7V2_WARNING = {
     `${count} ${id} segment${count === 1 ? '' : 's'} skipped: R4 requires a patient on ` +
     `${resourceType} and the message has no PID to reference.`,
   UNMAPPED_SEGMENT: (id: string, count: number): string =>
-    `${count} ${id} segment${count === 1 ? '' : 's'} skipped — this adapter maps PID, PV1, OBX, AL1 and DG1 only.`,
+    `${count} ${id} segment${count === 1 ? '' : 's'} skipped — this adapter maps PID, PV1, OBR, OBX, AL1, DG1, NK1 and IN1 only.`,
   NO_PATIENT: (id: string): string =>
     `${id} has no PID to attach to, so the resource carries no subject.`,
   UNKNOWN_CODE: (at: string, value: string): string =>

@@ -28,7 +28,7 @@ import type { Bundle, FhirResource } from 'fhir-normalize';
 
 ## Status
 
-`2.8.1`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform` and the `Normalizer`
+`2.9.0`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform` and the `Normalizer`
 methods — is stable under semver.
 
 | Format | Status |
@@ -37,7 +37,7 @@ methods — is stable under semver.
 | FHIR XML | ✅ via `fhir-normalize/xml` |
 | NDJSON (Bulk Data `$export`) | ✅ |
 | Streaming NDJSON, past the 512 MB string ceiling | ✅ via `fhir-normalize/stream` |
-| HL7 v2 in (ADT / ORU segments) | ✅ via `fhir-normalize/hl7v2` |
+| HL7 v2 in (ADT / ORU) | ✅ via `fhir-normalize/hl7v2` |
 | Cross-version STU3 / R5 → R4 | ⚠️ Partial — [see coverage](#older-and-newer-releases-land-on-r4) |
 | Simplified view (choice types resolved) | ✅ 147 resource types |
 | Flat rows, for CSV and tabular loads | ✅ via `fhir-normalize/simplified` |
@@ -79,7 +79,7 @@ Measured on a real install, minified, with dependencies included:
 | --- | --- |
 | parsing only | **~19 KB** (~7 KB gzipped) |
 | parsing + streaming | ~21 KB (~8 KB gzipped) |
-| parsing + HL7 v2 | ~29 KB (~11 KB gzipped) |
+| parsing + HL7 v2 | ~31 KB (~12 KB gzipped) |
 | validation, on its own | ~80 KB (~16 KB gzipped) |
 | parsing + the simplified view | ~84 KB (~24 KB gzipped) |
 | parsing + XML | ~106 KB (~35 KB gzipped) |
@@ -185,18 +185,37 @@ const { bundle, meta } = createDefaultNormalizer().register(hl7v2Parser).parse(a
 | --- | --- |
 | `PID` | `Patient` — identifiers, names, birth date, gender, address, telecom, marital status, deceased |
 | `PV1` | `Encounter` — class, identifier, type, period |
+| `OBR` | `DiagnosticReport` — code, status, identifiers, effective and issued times |
 | `OBX` | `Observation` — code, status, and the `value[x]` that `OBX-2` asks for |
 | `AL1` | `AllergyIntolerance` — code, criticality, reaction |
 | `DG1` | `Condition` — code, recorded date |
+| `NK1` | `RelatedPerson` — name, relationship, address, telecom |
+| `IN1` | `Coverage` — payor, type, subscriber id, period |
 
 Everything else is skipped and **named in `meta.warnings`**. The first `PID` becomes the subject of
 every other resource in the message.
+
+**An ORU comes out as a report with results, not a pile of loose observations.** v2 says which
+results belong to which order by position — the `OBX` segments after an `OBR` are that order's,
+until the next `OBR` — so each `DiagnosticReport` points at its own `Observation`s through `result`:
+
+```ts
+// OBR (Lipid panel), OBX, OBX, OBR (CBC), OBX
+// -> DiagnosticReport/report-FIL-1  result: [Observation/observation-1, Observation/observation-2]
+// -> DiagnosticReport/report-FIL-2  result: [Observation/observation-3]
+```
+
+An `OBX` with no `OBR` before it is still emitted on its own, since `OBX` is not only a lab thing.
 
 Two details, both places a v2 parser usually goes wrong. **Delimiters are read from `MSH-1` and
 `MSH-2`**, and escape sequences are decoded after splitting rather than before — `\S\` is how a
 message carries a literal component separator. And **a timestamp with no UTC offset loses its
 time**: R4's `dateTime` requires a timezone once hours are present, so the date is kept and the loss
 reported rather than assuming UTC.
+
+`Coverage.status` is written as `active`, because R4's value set for it is `active | cancelled |
+draft | entered-in-error` with no member for declining to say, and an `IN1` in a message describing
+a current admission is describing cover that applies.
 
 > [!NOTE]
 > **A curated subset, not the v2-to-FHIR implementation guide**, which is a specification in its own

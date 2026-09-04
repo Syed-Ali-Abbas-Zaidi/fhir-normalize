@@ -8,6 +8,7 @@ import {
   NULL_FLAVOR_SYSTEM,
   OBSERVATION_STATUS,
   OBX_VALUE_TYPE,
+  REPORT_STATUS,
   SEGMENT,
 } from './constants';
 import {
@@ -270,6 +271,123 @@ const toCondition = (segment: Segment, context: Context): Resource => {
   return condition;
 };
 
+/**
+ * OBR — the order a report covers.
+ *
+ * An ORU is a report *with* results, not a pile of loose observations, and the
+ * OBX segments that follow an OBR are its results. `toBundle` does the linking,
+ * because grouping is a property of segment order and a mapper only sees one
+ * segment.
+ */
+const toDiagnosticReport = (segment: Segment, context: Context): Resource => {
+  const { warnings } = context;
+
+  const report: Resource = {
+    resourceType: 'DiagnosticReport',
+    // OBR-3 is the filler order number, the identifier the producing system
+    // knows the report by. OBR-1 is only a position within the message.
+    id: idFrom('report', value(segment, 3) ?? value(segment, 1), context.index),
+    // Required, and an OBR carrying no OBR-25 has not said which.
+    status: 'unknown',
+    // Required. An OBR without a service identifier is malformed, but a report
+    // that omits `code` is not R4 at all, so the element is always written.
+    code: toCodeableConcept(repetitions(segment, 4)[0]) ?? {
+      text: value(segment, 4) ?? 'Unspecified report',
+    },
+  };
+
+  const statusCode = value(segment, 25);
+  if (statusCode !== undefined) {
+    const status = REPORT_STATUS[statusCode.toUpperCase()];
+    if (status === undefined) warnings.add(HL7V2_WARNING.UNKNOWN_CODE('OBR-25', statusCode));
+    else report.status = status;
+  }
+
+  // OBR-2 is the placer order number and OBR-3 the filler's; a report is
+  // commonly looked up by either.
+  put(
+    report,
+    'identifier',
+    listOrNothing([
+      ...repetitions(segment, 2).map(toIdentifier),
+      ...repetitions(segment, 3).map(toIdentifier),
+    ]),
+  );
+  put(report, 'subject', reference(context.subject));
+  put(report, 'effectiveDateTime', toDateTime(value(segment, 7), 'OBR-7', warnings));
+  put(report, 'issued', toDateTime(value(segment, 22), 'OBR-22', warnings));
+
+  return report;
+};
+
+/** NK1 — a next of kin or emergency contact. */
+const toRelatedPerson = (segment: Segment, context: Context): Resource => {
+  const related: Resource = {
+    resourceType: 'RelatedPerson',
+    id: idFrom('related', value(segment, 1), context.index),
+    // Required, and the reason NK1 is skipped when the message has no PID.
+    patient: reference(context.subject) as Resource,
+  };
+
+  put(related, 'name', listOrNothing(repetitions(segment, 2).map(toHumanName)));
+  put(related, 'relationship', listOrNothing([toCodeableConcept(repetitions(segment, 3)[0])]));
+  put(related, 'address', listOrNothing(repetitions(segment, 4).map(toAddress)));
+  put(
+    related,
+    'telecom',
+    listOrNothing([
+      ...repetitions(segment, 5).map((item) => toContactPoint(item, 'home')),
+      ...repetitions(segment, 6).map((item) => toContactPoint(item, 'work')),
+    ]),
+  );
+
+  return related;
+};
+
+/** IN1 — one insurance policy. */
+const toCoverage = (segment: Segment, context: Context): Resource => {
+  const { warnings } = context;
+
+  /*
+   * R4 requires `payor`, a reference to whoever pays. IN1 names the company
+   * without giving it an id, and a Reference carrying only `display` is
+   * conformant — inventing an Organization resource to point at would assert a
+   * record the message never sent.
+   */
+  const insurer = value(segment, 4);
+  const payor: Resource =
+    insurer === undefined ? { display: 'Unspecified payor' } : { display: insurer };
+
+  const coverage: Resource = {
+    resourceType: 'Coverage',
+    id: idFrom('coverage', value(segment, 2) ?? value(segment, 1), context.index),
+    /*
+     * Required, and unlike Encounter and Observation this value set has no
+     * `unknown` member — it is active | cancelled | draft | entered-in-error.
+     * An IN1 in a message describing a current admission is describing cover
+     * that applies, so `active` is the reading, and there is no code for
+     * declining to say.
+     */
+    status: 'active',
+    beneficiary: reference(context.subject) as Resource,
+    payor: [payor],
+  };
+
+  put(coverage, 'type', toCodeableConcept(repetitions(segment, 2)[0]));
+  put(coverage, 'subscriberId', value(segment, 36));
+
+  const start = toDate(value(segment, 12), 'IN1-12', warnings);
+  const end = toDate(value(segment, 13), 'IN1-13', warnings);
+  if (start !== undefined || end !== undefined) {
+    const period: Resource = {};
+    put(period, 'start', start);
+    put(period, 'end', end);
+    coverage.period = period;
+  }
+
+  return coverage;
+};
+
 /** The mappers, keyed by segment id, in the order they should be applied. */
 /**
  * Segments whose resource R4 will not accept without a patient.
@@ -283,6 +401,8 @@ const toCondition = (segment: Segment, context: Context): Resource => {
 export const REQUIRES_PATIENT: Readonly<Record<string, string>> = {
   [SEGMENT.ALLERGY]: 'AllergyIntolerance',
   [SEGMENT.DIAGNOSIS]: 'Condition',
+  [SEGMENT.NEXT_OF_KIN]: 'RelatedPerson',
+  [SEGMENT.INSURANCE]: 'Coverage',
 };
 
 export const SEGMENT_MAPPER: Readonly<
@@ -290,7 +410,10 @@ export const SEGMENT_MAPPER: Readonly<
 > = {
   [SEGMENT.PATIENT]: toPatient,
   [SEGMENT.VISIT]: toEncounter,
+  [SEGMENT.REPORT]: toDiagnosticReport,
   [SEGMENT.OBSERVATION]: toObservation,
   [SEGMENT.ALLERGY]: toAllergyIntolerance,
   [SEGMENT.DIAGNOSIS]: toCondition,
+  [SEGMENT.NEXT_OF_KIN]: toRelatedPerson,
+  [SEGMENT.INSURANCE]: toCoverage,
 };
