@@ -5,6 +5,20 @@ All notable changes to `fhir-normalize`.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.8.1] — 2026-08-19
+
+No change to the library's code: the compiled output is byte-identical to 2.8.0. This release exists
+to publish two things that reach consumers anyway.
+
+### Changed
+
+- **`fast-xml-parser` moved from `^5.10.1` to `^5.11.1`.** A widened floor rather than a new
+  requirement — a fresh install under the old range already resolved to 5.11.x — so it matters only
+  to a lockfile pinned lower.
+- **The README was rewritten**, from 953 lines to 578. Every capability is still documented; what
+  went was reasoning about decisions rather than instructions for using them, along with version
+  history that belongs here instead. It ships in the package, so it is what npm displays.
+
 ## [2.8.0] — 2026-08-17
 
 ### Fixed

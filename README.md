@@ -28,7 +28,7 @@ import type { Bundle, FhirResource } from 'fhir-normalize';
 
 ## Status
 
-`2.8.0`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform` and the `Normalizer`
+`2.8.1`. The public surface — `ParseResult`, `FormatParser`, `ResultTransform` and the `Normalizer`
 methods — is stable under semver.
 
 | Format | Status |
