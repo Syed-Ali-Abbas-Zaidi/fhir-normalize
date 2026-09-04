@@ -64,6 +64,11 @@ export {
 } from './deidentify';
 export { fhirJsonParser } from './parsers/fhir-json';
 export { ndjsonParser } from './parsers/ndjson';
+/**
+ * NDJSON out, the mirror of reading it in. Tiny — no tables travel with it —
+ * so it sits on the root rather than earning an entry point of its own.
+ */
+export { SERIALIZE_ERROR, toNdjson, toNdjsonByType, UNTYPED_GROUP } from './serialize';
 export type {
   DescribeFormat,
   FieldKind,

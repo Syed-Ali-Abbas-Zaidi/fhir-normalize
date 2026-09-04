@@ -5,6 +5,41 @@ All notable changes to `fhir-normalize`.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.10.0] — 2026-08-19
+
+### Added
+
+- **`toNdjson` and `toNdjsonByType` — NDJSON out.** The library read Bulk Data and could not write
+  it, so a pipeline could take an HL7 v2 message in and had nowhere standard to put the result.
+  Anything it parses now leaves as a Bulk Data-shaped export:
+
+  ```ts
+  const { bundle } = createDefaultNormalizer().register(hl7v2Parser).parse(adtMessage);
+
+  await writeFile('out.ndjson', toNdjson(bundle));
+
+  // Or a file per resource type, which is what an export looks like on disk.
+  for (const [resourceType, ndjson] of Object.entries(toNdjsonByType(bundle))) {
+    await writeFile(`${resourceType}.ndjson`, ndjson);
+  }
+  ```
+
+  The Bundle wrapper is not written, because NDJSON carries resources — so `parse()` on the output
+  gives back an equivalent Bundle rather than one nested inside another, which a test asserts by
+  round-tripping and comparing every resource.
+
+  Every line ends in a newline, including the last, so files concatenate without joining two
+  resources into one. A resource can never span two lines: `JSON.stringify` escapes every newline
+  and carriage return it meets, which is what makes the format safe to split on and is asserted
+  rather than assumed.
+
+  A resource with no `resourceType` is filed under `Unknown` rather than dropped, since `parse()`
+  can produce one and reports it. A resource that will not serialize at all — impossible from
+  `parse()`, reachable from hand-built objects — throws naming which resource it was.
+
+  It adds about 1 KB to a bundle that already parses, and lives on the root entry point because no
+  tables travel with it.
+
 ## [2.9.0] — 2026-08-19
 
 ### Added
