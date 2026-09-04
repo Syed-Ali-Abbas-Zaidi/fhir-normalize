@@ -5,6 +5,45 @@ All notable changes to `fhir-normalize`.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.9.0] — 2026-08-19
+
+### Added
+
+- **`OBR` becomes a `DiagnosticReport`, and an ORU comes out as a report with results.** Until now
+  a lab message produced loose `Observation`s and the order that grouped them was skipped, which is
+  not what an ORU is. v2 says which results belong to which order by position — the `OBX` segments
+  after an `OBR` are that order's, until the next one — so nothing inside an `OBX` names its report
+  and the link can only be made while the segments are walked in order.
+
+  ```text
+  OBR (Lipid panel), OBX, OBX, OBR (CBC), OBX
+  -> DiagnosticReport/report-FIL-1  result: [Observation/observation-1, Observation/observation-2]
+  -> DiagnosticReport/report-FIL-2  result: [Observation/observation-3]
+  ```
+
+  An `OBX` with no `OBR` before it is still emitted unattached, because `OBX` is not only a lab
+  thing and an observation without a report is a real observation. `OBR-25` maps onto
+  `DiagnosticReport.status`, and a code with no R4 counterpart is reported rather than guessed.
+
+- **`NK1` becomes a `RelatedPerson`** — name, relationship, address and telecom.
+
+- **`IN1` becomes a `Coverage`** — payor, type, subscriber id and period. `payor` is `1..*` in R4
+  and `IN1` names the company without giving it an id, so it is written as a reference carrying only
+  `display`; inventing an `Organization` to point at would assert a record the message never sent.
+
+  `status` is written as `active`. Unlike `Encounter` and `Observation`, that value set has no
+  member for declining to say — it is `active | cancelled | draft | entered-in-error` — and an `IN1`
+  in a message describing a current admission is describing cover that applies.
+
+  Both are skipped when the message has no `PID`, because R4 requires a patient on each.
+
+### Changed
+
+- **An empty bundle now says which of the two things happened.** A message whose only mappable
+  segments were skipped for want of a `PID` reported "no segment maps to a FHIR resource", listing
+  `NK1` as supported in the same breath as having skipped one. It now says the segments needed a
+  patient the message did not carry.
+
 ## [2.8.1] — 2026-08-19
 
 No change to the library's code: the compiled output is byte-identical to 2.8.0. This release exists

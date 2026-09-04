@@ -18,6 +18,24 @@ const subjectOf = (resources: readonly Record<string, unknown>[]): string | unde
   return typeof patient?.id === 'string' ? `Patient/${patient.id}` : undefined;
 };
 
+/**
+ * Point a report at one of its results.
+ *
+ * `DiagnosticReport.result` is a list of references, so the report has to be
+ * mutated as its observations are mapped rather than assembled up front. The
+ * observation is unchanged: FHIR points from report to result, not back, and
+ * inventing a reverse link would be data the message never carried.
+ */
+const attachResult = (
+  report: Record<string, unknown> | undefined,
+  observation: Record<string, unknown>,
+): void => {
+  if (report === undefined || typeof observation.id !== 'string') return;
+
+  const results = Array.isArray(report.result) ? report.result : [];
+  report.result = [...results, { reference: `Observation/${observation.id}` }];
+};
+
 /** Segments this adapter has no mapper for, reported once per kind. */
 const reportUnmapped = (message: Message, warnings: WarningLog): void => {
   const counts = new Map<string, number>();
@@ -64,6 +82,20 @@ export const toBundle = (message: Message, warnings: WarningLog) => {
   const skipped = new Map<string, number>();
   let reportedNoPatient = false;
 
+  /*
+   * The report an OBX belongs to, if any.
+   *
+   * An ORU is a report with results, and v2 says which by position: the OBX
+   * segments after an OBR are that OBR's results, until the next OBR. Nothing
+   * in an OBX names its report, so the link can only be made here — a mapper
+   * sees one segment and has no idea what preceded it.
+   *
+   * An OBX with no OBR before it is still emitted, unattached. Lab feeds are
+   * not the only thing that carries OBX, and an observation without a report
+   * is a real observation.
+   */
+  let openReport: Record<string, unknown> | undefined;
+
   const rest = message.segments.flatMap((segment) => {
     if (segment.id === SEGMENT.PATIENT) return [];
 
@@ -81,7 +113,12 @@ export const toBundle = (message: Message, warnings: WarningLog) => {
       warnings.add(HL7V2_WARNING.NO_PATIENT(segment.id));
     }
 
-    return [mapper(segment, { warnings, subject, index: next(segment.id) })];
+    const resource = mapper(segment, { warnings, subject, index: next(segment.id) });
+
+    if (segment.id === SEGMENT.REPORT) openReport = resource;
+    if (segment.id === SEGMENT.OBSERVATION) attachResult(openReport, resource);
+
+    return [resource];
   });
 
   for (const [id, count] of [...skipped].sort(([a], [b]) => (a < b ? -1 : 1))) {
@@ -92,7 +129,10 @@ export const toBundle = (message: Message, warnings: WarningLog) => {
 
   const resources = [...patients, ...rest];
   if (resources.length === 0) {
-    throw new ParseError(SOURCE_FORMAT.HL7V2, HL7V2_ERROR.NO_RESOURCES);
+    throw new ParseError(
+      SOURCE_FORMAT.HL7V2,
+      skipped.size > 0 ? HL7V2_ERROR.ONLY_WITHOUT_PATIENT : HL7V2_ERROR.NO_RESOURCES,
+    );
   }
 
   return createCollectionBundle(resources as unknown as FhirResource[]);

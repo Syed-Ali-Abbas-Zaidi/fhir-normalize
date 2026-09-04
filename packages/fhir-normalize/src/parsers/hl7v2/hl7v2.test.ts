@@ -458,10 +458,11 @@ describe('addresses and telecom', () => {
 
 describe('the message as a whole', () => {
   it('names the segments it skipped rather than dropping them silently', () => {
-    const { warnings } = parse('PID|1||1||A^B', 'NK1|1|DOE^JANE', 'NK1|2|DOE^JIM', 'IN1|1|PLAN');
+    // ORC and Z-segments, because NK1 and IN1 have mappers now.
+    const { warnings } = parse('PID|1||1||A^B', 'ORC|NW|1', 'ORC|NW|2', 'ZPD|1|local');
 
-    expect(warnings.join()).toContain('2 NK1 segments skipped');
-    expect(warnings.join()).toContain('1 IN1 segment skipped');
+    expect(warnings.join()).toContain('2 ORC segments skipped');
+    expect(warnings.join()).toContain('1 ZPD segment skipped');
   });
 
   it('says so when there is no PID for the rest to hang off', () => {
@@ -494,5 +495,195 @@ describe('the message as a whole', () => {
     );
 
     expect(validateBundle(bundle)).toEqual([]);
+  });
+});
+
+describe('an ORU is a report with results, not loose observations', () => {
+  /*
+   * v2 says which results belong to which order by position: the OBX segments
+   * after an OBR are that OBR's, until the next OBR. Nothing inside an OBX
+   * names its report, so a per-segment mapper cannot make the link and the
+   * grouping has to happen while the segments are walked in order.
+   */
+  const PID = segment('PID', { 1: '1', 3: '12345^^^MRN^MR', 5: 'DOE^JOHN' });
+
+  const order = (setId: string, filler: string, code: string, status?: string) =>
+    segment('OBR', { 1: setId, 3: filler, 4: code, ...(status ? { 25: status } : {}) });
+
+  const result = (setId: string, code: string) =>
+    segment('OBX', { 1: setId, 2: 'NM', 3: code, 5: '1', 11: 'F' });
+
+  it('points each report at the results that followed it, and no others', () => {
+    const { of } = parse(
+      PID,
+      order('1', 'FIL-1', '24331-1^Lipid panel^LN', 'F'),
+      result('1', '2093-3^Cholesterol^LN'),
+      result('2', '2571-8^Triglycerides^LN'),
+      order('2', 'FIL-2', '58410-2^CBC panel^LN', 'P'),
+      result('3', '718-7^Hemoglobin^LN'),
+    );
+
+    const [lipids, cbc] = of('DiagnosticReport');
+
+    expect(lipids?.result).toEqual([
+      { reference: 'Observation/observation-1' },
+      { reference: 'Observation/observation-2' },
+    ]);
+    expect(cbc?.result).toEqual([{ reference: 'Observation/observation-3' }]);
+    expect(of('Observation')).toHaveLength(3);
+  });
+
+  it('references observations that are really in the bundle', () => {
+    // A dangling reference would be worse than none: it says a result exists.
+    const { of } = parse(
+      PID,
+      order('1', 'FIL-1', 'X^Y^L'),
+      result('1', 'a^b^L'),
+      result('2', 'c^d^L'),
+    );
+
+    const ids = new Set(of('Observation').map((o) => `Observation/${o.id as string}`));
+    const referenced = (of('DiagnosticReport')[0]?.result ?? []) as { reference: string }[];
+
+    expect(referenced).toHaveLength(2);
+    for (const { reference } of referenced) expect(ids.has(reference)).toBe(true);
+  });
+
+  it('leaves an OBX with no order before it standing on its own', () => {
+    // OBX is not only a lab thing, and an observation without a report is a
+    // real observation rather than an error.
+    const { of } = parse(PID, result('1', 'a^b^L'));
+
+    expect(of('DiagnosticReport')).toEqual([]);
+    expect(of('Observation')).toHaveLength(1);
+  });
+
+  it('emits a report that produced no results yet', () => {
+    const { first, of } = parse(PID, order('1', 'FIL-1', 'X^Y^L', 'I'));
+
+    expect(of('Observation')).toEqual([]);
+    expect(first('DiagnosticReport').result).toBeUndefined();
+    expect(first('DiagnosticReport').status).toBe('registered');
+  });
+
+  it('maps OBR-25 onto the R4 status, and says so when it cannot', () => {
+    const cases: [string, string][] = [
+      ['F', 'final'],
+      ['P', 'preliminary'],
+      ['C', 'corrected'],
+      ['A', 'partial'],
+      ['X', 'cancelled'],
+    ];
+
+    for (const [code, expected] of cases) {
+      expect(parse(PID, order('1', 'F1', 'X^Y^L', code)).first('DiagnosticReport').status).toBe(
+        expected,
+      );
+    }
+
+    const unknown = parse(PID, order('1', 'F1', 'X^Y^L', 'Q'));
+    expect(unknown.first('DiagnosticReport').status).toBe('unknown');
+    expect(unknown.warnings.join()).toContain('OBR-25');
+
+    // Absent is not the same as unrecognised, and only one of them warrants a
+    // warning.
+    const absent = parse(PID, order('1', 'F1', 'X^Y^L'));
+    expect(absent.first('DiagnosticReport').status).toBe('unknown');
+    expect(absent.warnings.join()).not.toContain('OBR-25');
+  });
+
+  it('always writes the code R4 requires, even from a bare OBR', () => {
+    const { first } = parse(PID, segment('OBR', { 1: '1', 3: 'FIL-1' }));
+
+    expect(first('DiagnosticReport').code).toEqual({ text: 'Unspecified report' });
+    expect(validateBundle(parse(PID, segment('OBR', { 1: '1' })).bundle)).toEqual([]);
+  });
+});
+
+describe('NK1 and IN1', () => {
+  const PID = segment('PID', { 1: '1', 3: '12345', 5: 'DOE^JOHN' });
+
+  it('maps a next of kin onto a RelatedPerson', () => {
+    const { first } = parse(
+      PID,
+      segment('NK1', {
+        1: '1',
+        2: 'DOE^JANE',
+        3: 'SPO^Spouse',
+        4: '1 Main St^^Springfield^IL^62704',
+        5: '555-1234',
+      }),
+    );
+
+    const related = first('RelatedPerson');
+    expect(related.patient).toEqual({ reference: 'Patient/patient-12345' });
+    expect(related.name).toEqual([{ family: 'DOE', given: ['JANE'] }]);
+    expect(related.relationship).toEqual([
+      { coding: [{ code: 'SPO', display: 'Spouse' }], text: 'Spouse' },
+    ]);
+    expect(related.address).toHaveLength(1);
+  });
+
+  it('maps an insurance segment onto a Coverage that R4 accepts', () => {
+    const { first, bundle } = parse(
+      PID,
+      segment('IN1', {
+        1: '1',
+        2: 'PLAN1^PPO',
+        4: 'AETNA',
+        12: '20260101',
+        13: '20261231',
+        36: 'POL-77',
+      }),
+    );
+
+    const coverage = first('Coverage');
+    expect(coverage.beneficiary).toEqual({ reference: 'Patient/patient-12345' });
+    // A Reference carrying only `display` is conformant; inventing an
+    // Organization to point at would assert a record the message never sent.
+    expect(coverage.payor).toEqual([{ display: 'AETNA' }]);
+    expect(coverage.subscriberId).toBe('POL-77');
+    expect(coverage.period).toEqual({ start: '2026-01-01', end: '2026-12-31' });
+    expect(validateBundle(bundle)).toEqual([]);
+  });
+
+  it('fills the required payor when IN1 names no company', () => {
+    // `payor` is 1..* in R4, so a Coverage without one is not R4 at all.
+    expect(parse(PID, segment('IN1', { 1: '1' })).first('Coverage').payor).toEqual([
+      { display: 'Unspecified payor' },
+    ]);
+  });
+
+  it('skips both when the message has no PID, because R4 requires one', () => {
+    // An OBX so the bundle is not empty; Observation.subject is optional, so
+    // that one survives a message with no PID and these two do not.
+    const { of, warnings } = parse(
+      segment('NK1', { 1: '1', 2: 'DOE^JANE' }),
+      segment('IN1', { 1: '1' }),
+      segment('OBX', { 1: '1', 2: 'ST', 3: 'a^b^L', 5: 'text' }),
+    );
+
+    expect(of('RelatedPerson')).toEqual([]);
+    expect(of('Coverage')).toEqual([]);
+    expect(of('Observation')).toHaveLength(1);
+    expect(warnings.join()).toContain('R4 requires a patient on RelatedPerson');
+    expect(warnings.join()).toContain('R4 requires a patient on Coverage');
+  });
+
+  it('says why the bundle is empty when everything needed the patient', () => {
+    /*
+     * Reporting "no segment maps to a resource" here would name NK1 as
+     * supported in the same breath as having skipped one, sending the reader
+     * to look for a mapper that exists.
+     */
+    expect(() => parse(segment('NK1', { 1: '1' }), segment('IN1', { 1: '1' }))).toThrow(
+      /needs a patient R4 requires, and the message has no PID/,
+    );
+  });
+
+  it('no longer reports these segments as unmapped', () => {
+    const { warnings } = parse(PID, segment('NK1', { 1: '1' }), segment('IN1', { 1: '1' }));
+
+    expect(warnings.join()).not.toContain('skipped — this adapter maps');
   });
 });
