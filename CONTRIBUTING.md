@@ -83,6 +83,16 @@ The workflow comments on the pull requests it declines to merge, saying which ru
 refuses to merge anything at all unless `main` requires the CI checks: auto-merge is a queue that
 waits for *required* checks, so without them it would merge before CI had reported.
 
+**Packages released in lockstep are grouped whatever the update type**, ahead of the minor/patch
+groups, because a major is precisely what splits them. `vitest` and `@vitest/coverage-v8` are the
+worked example: they arrived as separate pull requests, and for the seven minutes between them
+landing, `main` carried vitest 5 with the version 4 coverage plugin — the test run died and took
+the SonarQube scan with it. The plugin reaches into vitest's internals, so it can only be updated
+alongside. React and its types are grouped for the same reason.
+
+Grouping does not make a major merge itself; it only makes it arrive in one piece. `update-type` is
+still what the auto-merge workflow reads, so a person still reviews it.
+
 ## Static analysis
 
 Biome handles linting and formatting, and SonarQube Cloud covers what Biome does not — security and
