@@ -19,7 +19,7 @@
     "verify": "pnpm build && pnpm lint && pnpm knip && pnpm typecheck && pnpm test"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.11",
+    "@biomejs/biome": "^2.5.12",
     "knip": "^6.34.0"
   }
 }
