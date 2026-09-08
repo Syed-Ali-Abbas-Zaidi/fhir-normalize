@@ -30,6 +30,31 @@ updates:
     # Without grouping this is three directories times every dependency, which
     # is a lot of individual pull requests for a repository this size.
     groups:
+      # Packages that cannot move apart, whatever the update type.
+      #
+      # Listed before the two below because Dependabot files a dependency into
+      # the first group it matches, and these have to beat the minor/patch
+      # split — a major is what breaks them, and a major is exactly what those
+      # groups exclude.
+      #
+      # This is not hypothetical. vitest 5.0.0 and @vitest/coverage-v8 5.0.0
+      # arrived as separate pull requests, and for the seven minutes between
+      # them landing, `main` had vitest 5 with the version 4 coverage plugin:
+      # the test run died and took the SonarQube scan with it. The plugin
+      # reaches into vitest's internals and is released in lockstep, so it has
+      # to be updated in lockstep.
+      vitest:
+        patterns:
+          - vitest
+          - '@vitest/*'
+      # The same argument. React majors land across react, react-dom and their
+      # types at once, and the playground builds against all four.
+      react:
+        patterns:
+          - react
+          - react-dom
+          - '@types/react'
+          - '@types/react-dom'
       production:
         dependency-type: production
         update-types:
